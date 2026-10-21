@@ -3,715 +3,225 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>富山県マップアプリ</title>
-  <!-- Leaflet CSS -->
+  <title>富山県観光マップ</title>
+  
+  <!-- Leaflet & Tailwind CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-    }
-   #map {
-  height: 100vh;
-  width: 100%;
-  z-index: 1; /* ←これを追加して地図のクリック優先度を上げる */
-}
-    /* 現在地ボタンのスタイル */
-    .location-btn {
-      background: #ffffff;
-      border: 2px solid rgba(0, 0, 0, 0.2);
-      border-radius: 4px;
-      padding: 8px 12px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-    }
-    .location-btn:hover {
-      background: #f4f4f4;
-    }
+    #map { height: 100vh; width: 100%; z-index: 0; }
+    .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 4px; }
   </style>
 </head>
-<body>
+<body class="bg-gray-50 flex flex-col md:flex-row h-screen overflow-hidden">
 
-  <div id="map"></div>
+  <!-- サイドバー -->
+  <div class="w-full md:w-80 bg-white shadow-lg flex flex-col z-10 h-1/3 md:h-full">
+    <div class="p-4 bg-blue-600 text-white">
+      <h1 class="text-xl font-bold flex items-center gap-2">
+        <i class="fa-solid fa-map-location-dot"></i> 富山県観光マップ
+      </h1>
+    </div>
 
-  <!-- Leaflet JS -->
+    <!-- 検索窓 & カテゴリ -->
+    <div class="p-3 border-b space-y-2">
+      <input type="text" id="searchInput" placeholder="スポット名やキーワードで検索..." 
+             class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      
+      <div class="flex gap-1 overflow-x-auto pb-1 text-xs" id="categoryFilter">
+        <button onclick="filterCategory('all')" class="cat-btn active bg-blue-600 text-white px-3 py-1 rounded-full whitespace-nowrap">すべて</button>
+        <button onclick="filterCategory('観光')" class="cat-btn bg-gray-100 text-gray-700 px-3 py-1 rounded-full whitespace-nowrap">観光</button>
+        <button onclick="filterCategory('グルメ')" class="cat-btn bg-gray-100 text-gray-700 px-3 py-1 rounded-full whitespace-nowrap">グルメ</button>
+        <button onclick="filterCategory('温泉')" class="cat-btn bg-gray-100 text-gray-700 px-3 py-1 rounded-full whitespace-nowrap">温泉</button>
+      </div>
+    </div>
+
+    <!-- スポットリスト -->
+    <div id="spotList" class="flex-1 overflow-y-auto p-3 space-y-2 text-sm">
+      <p class="text-gray-400 text-center py-4">データを読み込んでいます...</p>
+    </div>
+  </div>
+
+  <!-- マップ表示エリア -->
+  <div class="flex-1 relative h-2/3 md:h-full">
+    <div id="map"></div>
+    <button onclick="getCurrentLocation()" 
+            class="absolute top-4 right-4 bg-white hover:bg-gray-100 text-gray-800 font-bold py-2 px-4 border border-gray-300 rounded-lg shadow z-[1000] flex items-center gap-2 text-sm">
+      <i class="fa-solid fa-location-crosshairs text-blue-600"></i> 現在地を取得
+    </button>
+  </div>
+
+  <!-- JS ライブラリ -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- PapaParse JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <script>
-    // 1. 富山県を中心に地図を初期化
+    // 1. 地図の初期化（変数宣言はここ1回のみ）
     const map = L.map('map').setView([36.6953, 137.2113], 10);
 
-    // 背景地図（OpenStreetMap）
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // 2. CSVデータを取得してマーカーを表示
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
 
+    let allSpots = [];
+    let markers = [];
+    let userLat = null;
+    let userLng = null;
+    let userMarker = null;
+
+    // カテゴリごとのピン色
+    function getCategoryColor(category) {
+      if (!category) return '#3B82F6';
+      if (category.includes('グルメ') || category.includes('カフェ')) return '#EF4444';
+      if (category.includes('温泉')) return '#10B981';
+      return '#3B82F6';
+    }
+
+    // 2. CSV読み込み
     Papa.parse(csvUrl, {
       download: true,
       header: true,
       complete: function(results) {
-        results.data.forEach(row => {
+        allSpots = results.data.map((row, index) => {
           const lat = parseFloat(row['緯度'] || row['lat'] || row['Latitude']);
           const lng = parseFloat(row['経度'] || row['lng'] || row['Longitude']);
-          const name = row['名称'] || row['名前'] || row['Name'] || 'スポット';
-          const description = row['詳細'] || row['説明'] || '';
+          return {
+            id: index,
+            name: row['名称'] || row['名前'] || row['Name'] || '名称未設定',
+            category: row['カテゴリ'] || row['ジャンル'] || '観光',
+            description: row['詳細'] || row['説明'] || '',
+            lat: lat,
+            lng: lng,
+            distance: null
+          };
+        }).filter(spot => !isNaN(spot.lat) && !isNaN(spot.lng));
 
-          if (!isNaN(lat) && !isNaN(lng)) {
-            L.marker([lat, lng])
-              .addTo(map)
-              .bindPopup(`<b>${name}</b><br>${description}`);
-          }
-        });
+        renderSpots(allSpots);
+      },
+      error: function() {
+        document.getElementById('spotList').innerHTML = '<p class="text-red-500 text-center">データの取得に失敗しました</p>';
       }
     });
 
-    // 3. 現在地表示機能の追加
-    let currentLocationMarker = null;
-
-    // 地図上にカスタムボタンを追加
-    const locationControl = L.control({ position: 'topright' });
-
-    locationControl.onAdd = function() {
-      const btn = L.DomUtil.create('button', 'location-btn');
-      btn.innerHTML = '📍 現在地を表示';
-      btn.onclick = function(e) {
-        e.stopPropagation(); // ボタンクリック時のイベント伝播を防止
-        
-        // ブラウザの現在地取得機能を実行
-        map.locate({ setView: true, maxZoom: 15 });
-      };
-      return btn;
-    };
-
-    locationControl.addTo(map);
-
-    // 現在地が見つかった時の処理
-    map.on('locationfound', function(e) {
-      // すでに現在地ピンがあれば削除
-      if (currentLocationMarker) {
-        map.removeLayer(currentLocationMarker);
-      }
-
-      // 現在地に青いサークルを表示
-      currentLocationMarker = L.circleMarker(e.latlng, {
-        radius: 8,
-        fillColor: '#0078ff',
-        color: '#ffffff',
-        weight: 3,
-        opacity: 1,
-        fillOpacity: 0.8
-      }).addTo(map).bindPopup('あなたの現在地').openPopup();
-    });
-
-    // 位置情報の取得に失敗した場合
-    map.on('locationerror', function(e) {
-      alert('現在地を取得できませんでした。ブラウザの位置情報利用を許可してください。');
-    });
-  </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>富山県 観光ガイドマップ</title>
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  
-  <!-- FontAwesome for Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- Google Fonts (Inter & Noto Sans JP) -->
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-
-  <style>
-    body {
-      font-family: 'Noto Sans JP', sans-serif;
-    }
-    #map {
-      height: 100vh;
-      width: 100%;
-      z-index: 1;
-    }
-    /* カスタムスクロールバー */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #f1f1f1;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
-    /* パルスアニメーション（現在地用） */
-    .user-location-marker {
-      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
-      animation: pulse 1.8s infinite;
-      border-radius: 50%;
-    }
-    @keyframes pulse {
-      0% {
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
-      }
-      70% {
-        box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
-      }
-      100% {
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-      }
-    }
-    /* Leafletの要素調整 */
-    .leaflet-popup-content-wrapper {
-      border-radius: 0.75rem;
-      padding: 4px;
-    }
-    .leaflet-container {
-      font-family: 'Noto Sans JP', sans-serif;
-    }
-  </style>
-</head>
-<body class="bg-slate-50 text-slate-800 overflow-hidden">
-
-  <!-- メインコンテナ -->
-  <div class="relative flex flex-col md:flex-row h-screen w-screen overflow-hidden">
-
-    <!-- サイドバー / スポット一覧パネル -->
-    <aside id="sidebar" class="absolute md:relative bottom-0 left-0 right-0 md:right-auto z-20 w-full md:w-96 bg-white/95 backdrop-blur-md shadow-2xl md:shadow-lg flex flex-col transition-all duration-300 ease-in-out h-[55vh] md:h-full rounded-t-2xl md:rounded-none">
-      
-      <!-- ヘッダー -->
-      <div class="p-4 border-b border-slate-100 flex-shrink-0">
-        <!-- スマホ用スライドバー表示用ハンガー -->
-        <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-3 md:hidden"></div>
-        
-        <div class="flex items-center justify-between">
-          <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <span class="text-sky-600"><i class="fa-solid fa-map-location-dot"></i></span>
-            富山ガイドマップ
-          </h1>
-          <span id="spot-count" class="text-xs bg-sky-100 text-sky-700 font-medium px-2.5 py-1 rounded-full">
-            読み込み中...
-          </span>
-        </div>
-
-        <!-- 検索窓 -->
-        <div class="relative mt-3">
-          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-          <input type="text" id="search-input" placeholder="スポット名・キーワードで検索..." 
-            class="w-full pl-9 pr-9 py-2 bg-slate-100 focus:bg-white text-sm rounded-xl border border-transparent focus:border-sky-500 outline-none transition duration-200">
-          <button id="clear-search" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-
-        <!-- カテゴリーフィルター -->
-        <div class="flex gap-1.5 overflow-x-auto pb-1 mt-3 scrollbar-none text-xs">
-          <button class="category-filter active px-3 py-1.5 rounded-lg bg-sky-600 text-white font-medium whitespace-nowrap transition" data-category="all">
-            すべて
-          </button>
-          <button class="category-filter px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium whitespace-nowrap transition" data-category="観光">
-            <i class="fa-solid fa-camera text-blue-500 mr-1"></i>観光
-          </button>
-          <button class="category-filter px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium whitespace-nowrap transition" data-category="グルメ">
-            <i class="fa-solid fa-utensils text-rose-500 mr-1"></i>グルメ
-          </button>
-          <button class="category-filter px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium whitespace-nowrap transition" data-category="温泉">
-            <i class="fa-solid fa-hot-tub-person text-emerald-500 mr-1"></i>温泉
-          </button>
-          <button class="category-filter px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium whitespace-nowrap transition" data-category="カフェ">
-            <i class="fa-solid fa-mug-saucer text-amber-500 mr-1"></i>カフェ/買物
-          </button>
-          <button class="category-filter px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium whitespace-nowrap transition" data-category="その他">
-            その他
-          </button>
-        </div>
-
-        <!-- ソート & 現在地ステータスバー -->
-        <div class="flex items-center justify-between text-xs text-slate-500 mt-3 pt-2 border-t border-slate-100">
-          <div id="distance-status">現在地: 未設定</div>
-          <button id="sort-distance-btn" class="text-sky-600 hover:text-sky-700 font-medium flex items-center gap-1 disabled:opacity-50" disabled>
-            <i class="fa-solid fa-arrow-down-short-wide"></i> 距離順に並べ替え
-          </button>
-        </div>
-      </div>
-
-      <!-- スポットカード一覧（スクロールエリア） -->
-      <div id="spot-list" class="flex-1 overflow-y-auto p-3 space-y-2.5">
-        <!-- JSでカードを動的に生成します -->
-      </div>
-    </aside>
-
-    <!-- マップコンテナ -->
-    <main class="flex-1 relative h-full w-full">
-      <div id="map"></div>
-
-      <!-- マップ上Floatingコントロール（現在地ボタン） -->
-      <div class="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-        <button id="locate-btn" class="bg-white/90 backdrop-blur hover:bg-white text-slate-700 hover:text-sky-600 p-3 rounded-xl shadow-md border border-slate-200 transition flex items-center gap-2 text-sm font-medium">
-          <i class="fa-solid fa-location-crosshairs text-sky-600 text-lg"></i>
-          <span class="hidden sm:inline">現在地を取得</span>
-        </button>
-      </div>
-    </main>
-  </div>
-
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- PapaParse JS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-
-  <script>
-    // --- カテゴリーアイコン & カラー定義 ---
-    const categoryConfig = {
-      '観光': { color: '#2563eb', bg: 'bg-blue-500', icon: 'fa-camera' },
-      'グルメ': { color: '#e11d48', bg: 'bg-rose-500', icon: 'fa-utensils' },
-      '温泉': { color: '#059669', bg: 'bg-emerald-500', icon: 'fa-hot-tub-person' },
-      'カフェ': { color: '#d97706', bg: 'bg-amber-500', icon: 'fa-mug-saucer' },
-      'ショッピング': { color: '#d97706', bg: 'bg-amber-500', icon: 'fa-bag-shopping' },
-      'その他': { color: '#7c3aed', bg: 'bg-violet-500', icon: 'fa-location-dot' }
-    };
-
-    // --- フォールバックデータ (CSV読み込み失敗時・初期ロード用) ---
-    const fallbackSpots = [
-      {
-        name: '富山駅',
-        category: '観光',
-        lat: 36.7013,
-        lng: 137.2133,
-        description: '北陸新幹線・あいの風とやま鉄道のターミナル駅。きときと市場「とやマルシェ」で特産品を楽しめます。',
-        image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&auto=format&fit=crop&q=60'
-      },
-      {
-        name: '富岩運河環水公園',
-        category: '観光',
-        lat: 36.7092,
-        lng: 137.2140,
-        description: '美しい水辺の公園。世界一美しいと称されたスターバックスコーヒーや天門橋の展望塔があります。',
-        image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=60'
-      },
-      {
-        name: '雨晴海岸',
-        category: '観光',
-        lat: 36.8166,
-        lng: 137.0425,
-        description: '富山湾越しに3000m級の立山連峰を望む屈指の絶景スポット。女岩と義経岩が有名。',
-        image: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=500&auto=format&fit=crop&q=60'
-      },
-      {
-        name: '立山黒部アルペンルート (室堂)',
-        category: '観光',
-        lat: 36.5772,
-        lng: 137.5956,
-        description: '標高2,450mに位置する山岳観光の拠点。春の「雪の大谷」ウォークやミクリガ池が見どころ。',
-        image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=500&auto=format&fit=crop&q=60'
-      },
-      {
-        name: '宇奈月温泉',
-        category: '温泉',
-        lat: 36.8153,
-        lng: 137.5855,
-        description: '黒部峡谷の玄関口にある温泉街。透明度の高い美肌の湯として知られています。',
-        image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=500&auto=format&fit=crop&q=60'
-      },
-      {
-        name: '富山市ガラス美術館',
-        category: '観光',
-        lat: 36.6896,
-        lng: 137.2144,
-        description: '建築家・隈研吾氏が設計した美しい複合施設。現代ガラス美術の世界的展示が行われています。',
-        image: 'https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=500&auto=format&fit=crop&q=60'
-      }
-    ];
-
-    // --- グローバル状態管理 ---
-    let map;
-    let markers = [];
-    let spotsData = [];
-    let filteredSpots = [];
-    let userLocation = null;
-    let userMarker = null;
-    let selectedCategory = 'all';
-
-    // --- 地図アイコン作成関数 ---
-    function createCustomIcon(category) {
-      const config = categoryConfig[category] || categoryConfig['その他'];
-      const html = `
-        <div class="relative flex items-center justify-center w-8 h-8 rounded-full ${config.bg} text-white shadow-lg border-2 border-white transform transition hover:scale-110">
-          <i class="fa-solid ${config.icon} text-sm"></i>
-        </div>
-      `;
-      return L.divIcon({
-        html: html,
-        className: 'custom-leaflet-icon',
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32]
-      });
-    }
-
-    // --- アプリ初期化 ---
-    window.onload = function() {
-      initMap();
-      fetchCSVData();
-      setupEventListeners();
-    };
-
-    // --- 地図初期化 ---
-    function initMap() {
-      // 富山県中心付近
-      map = L.map('map', { zoomControl: false }).setView([36.6953, 137.2113], 10);
-
-      // OpenStreetMap タイル
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
-
-      // ズームコントロールを右下に設置
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
-    }
-
-    // --- CSVデータの取得 & パース ---
-    function fetchCSVData() {
-      const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
-
-      Papa.parse(csvUrl, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          if (results.data && results.data.length > 0) {
-            parseAndLoadSpots(results.data);
-          } else {
-            console.warn('CSVデータが空です。内蔵データを使用します。');
-            loadFallbackData();
-          }
-        },
-        error: function(err) {
-          console.error('CSV取得失敗。内蔵データを使用します:', err);
-          loadFallbackData();
-        }
-      });
-    }
-
-    // --- パース処理 ---
-    function parseAndLoadSpots(rawRows) {
-      spotsData = rawRows.map((row, index) => {
-        // カラム名の揺らぎに対応
-        const lat = parseFloat(row['緯度'] || row['lat'] || row['Latitude']);
-        const lng = parseFloat(row['経度'] || row['lng'] || row['Longitude']);
-        const name = row['名称'] || row['名前'] || row['Name'] || `スポット ${index + 1}`;
-        const category = row['カテゴリ'] || row['ジャンル'] || row['Category'] || 'その他';
-        const description = row['詳細'] || row['説明'] || row['Description'] || '';
-        const image = row['画像URL'] || row['画像'] || row['写真'] || row['Image'] || null;
-
-        if (isNaN(lat) || isNaN(lng)) return null;
-
-        return {
-          id: index,
-          name: name,
-          category: category,
-          lat: lat,
-          lng: lng,
-          description: description,
-          image: image,
-          distance: null
-        };
-      }).filter(spot => spot !== null);
-
-      if (spotsData.length === 0) {
-        loadFallbackData();
-      } else {
-        updateAppUI();
-      }
-    }
-
-    // 内蔵データ読み込み
-    function loadFallbackData() {
-      spotsData = fallbackSpots.map((item, index) => ({ ...item, id: index, distance: null }));
-      updateAppUI();
-    }
-
-    // --- UI & マーカー更新 ---
-    function updateAppUI() {
-      filterSpots();
-      renderMarkers();
-      renderSpotCards();
-    }
-
-    // --- フィルタリング & 検索機能 ---
-    function filterSpots() {
-      const searchText = document.getElementById('search-input').value.toLowerCase().trim();
-
-      filteredSpots = spotsData.filter(spot => {
-        // カテゴリーフィルター
-        const matchesCategory = (selectedCategory === 'all') || 
-                                spot.category.includes(selectedCategory) ||
-                                (selectedCategory === 'カフェ' && spot.category.includes('買物'));
-
-        // 検索ワードフィルター
-        const matchesSearch = spot.name.toLowerCase().includes(searchText) || 
-                              spot.description.toLowerCase().includes(searchText) ||
-                              spot.category.toLowerCase().includes(searchText);
-
-        return matchesCategory && matchesSearch;
-      });
-
-      document.getElementById('spot-count').textContent = `${filteredSpots.length} 件表示`;
-    }
-
-    // --- マーカー描画 ---
-    function renderMarkers() {
-      // 既存マーカークリア
+    // 3. ピンとリストを表示
+    function renderSpots(spots) {
+      // 既存マーカー消去
       markers.forEach(m => map.removeLayer(m));
       markers = [];
 
-      filteredSpots.forEach(spot => {
-        const marker = L.marker([spot.lat, spot.lng], {
-          icon: createCustomIcon(spot.category)
-        });
+      const listEl = document.getElementById('spotList');
+      listEl.innerHTML = '';
 
-        // 距離テキスト
-        const distanceHtml = spot.distance !== null 
-          ? `<div class="mt-1 text-xs text-sky-600 font-bold"><i class="fa-solid fa-route"></i> 現在地から ${spot.distance.toFixed(1)} km</div>`
-          : '';
-
-        // 画像HTML
-        const imageHtml = spot.image 
-          ? `<img src="${spot.image}" class="w-full h-28 object-cover rounded-t-lg mb-2" onerror="this.style.display='none'">`
-          : '';
-
-        // ポップアップコンテンツ
-        const popupContent = `
-          <div class="w-56 text-slate-800">
-            ${imageHtml}
-            <div class="px-1">
-              <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded text-white bg-slate-700 mb-1">${spot.category}</span>
-              <h3 class="font-bold text-sm leading-snug">${spot.name}</h3>
-              <p class="text-xs text-slate-600 mt-1 line-clamp-3">${spot.description}</p>
-              ${distanceHtml}
-              <a href="https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lng}" target="_blank" rel="noopener noreferrer" 
-                 class="mt-2 inline-flex items-center gap-1 text-xs text-sky-600 font-bold hover:underline">
-                Googleマップで開く <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-              </a>
-            </div>
-          </div>
-        `;
-
-        marker.bindPopup(popupContent);
-        marker.addTo(map);
-
-        // クリック時イベント
-        marker.on('click', () => {
-          highlightCard(spot.id);
-        });
-
-        markers.push(marker);
-      });
-    }
-
-    // --- スポットカードリスト描画 ---
-    function renderSpotCards() {
-      const listContainer = document.getElementById('spot-list');
-      listContainer.innerHTML = '';
-
-      if (filteredSpots.length === 0) {
-        listContainer.innerHTML = `
-          <div class="text-center py-8 text-slate-400 text-sm">
-            <i class="fa-solid fa-map-pin text-3xl mb-2"></i>
-            <p>該当するスポットが見つかりません</p>
-          </div>
-        `;
+      if (spots.length === 0) {
+        listEl.innerHTML = '<p class="text-gray-400 text-center py-4">該当するスポットがありません</p>';
         return;
       }
 
-      filteredSpots.forEach(spot => {
-        const card = document.createElement('div');
-        card.id = `spot-card-${spot.id}`;
-        card.className = 'p-3 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl shadow-sm transition duration-200 cursor-pointer flex gap-3 items-center group';
-        
-        const config = categoryConfig[spot.category] || categoryConfig['その他'];
-        
-        const distanceText = spot.distance !== null 
-          ? `<span class="text-sky-600 font-bold ml-auto text-xs whitespace-nowrap"><i class="fa-solid fa-route"></i> ${spot.distance.toFixed(1)} km</span>`
-          : '';
+      spots.forEach(spot => {
+        const color = getCategoryColor(spot.category);
 
+        // マーカー作成
+        const marker = L.circleMarker([spot.lat, spot.lng], {
+          radius: 8,
+          fillColor: color,
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.9
+        }).addTo(map);
+
+        const distText = spot.distance ? `<span class="text-xs text-blue-600 font-semibold block mt-1">📍 現在地から ${spot.distance.toFixed(1)} km</span>` : '';
+
+        // ポップアップ設定
+        marker.bindPopup(`
+          <div class="custom-popup">
+            <span class="text-xs px-2 py-0.5 rounded text-white font-bold" style="background-color:${color}">${spot.category}</span>
+            <h3 class="font-bold text-base mt-1 mb-1">${spot.name}</h3>
+            <p class="text-xs text-gray-600">${spot.description}</p>
+            ${distText}
+          </div>
+        `);
+
+        markers.push(marker);
+
+        // サイドバーリスト項目
+        const card = document.createElement('div');
+        card.className = 'p-3 bg-white border rounded-lg hover:shadow-md cursor-pointer transition';
         card.innerHTML = `
-          <div class="w-10 h-10 rounded-xl ${config.bg} text-white flex items-center justify-center flex-shrink-0 font-bold group-hover:scale-105 transition">
-            <i class="fa-solid ${config.icon}"></i>
+          <div class="flex justify-between items-start">
+            <h4 class="font-bold text-gray-800">${spot.name}</h4>
+            <span class="text-[10px] px-1.5 py-0.5 rounded text-white" style="background-color:${color}">${spot.category}</span>
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1">
-              <span class="text-[10px] text-slate-400 font-medium">${spot.category}</span>
-            </div>
-            <h4 class="font-bold text-sm text-slate-800 truncate group-hover:text-sky-600 transition">${spot.name}</h4>
-            <p class="text-xs text-slate-500 truncate mt-0.5">${spot.description}</p>
-          </div>
-          ${distanceText}
+          <p class="text-xs text-gray-500 line-clamp-2 mt-1">${spot.description}</p>
+          ${distText}
         `;
 
-        card.addEventListener('click', () => {
-          map.flyTo([spot.lat, spot.lng], 14, { duration: 1.2 });
-          
-          // マーカーのポップアップを開く
-          const targetIndex = filteredSpots.findIndex(s => s.id === spot.id);
-          if (targetIndex !== -1 && markers[targetIndex]) {
-            markers[targetIndex].openPopup();
-          }
+        card.onclick = () => {
+          map.flyTo([spot.lat, spot.lng], 15);
+          marker.openPopup();
+        };
 
-          highlightCard(spot.id);
-        });
-
-        listContainer.appendChild(card);
+        listEl.appendChild(card);
       });
     }
 
-    // --- カードのハイライト効果 ---
-    function highlightCard(spotId) {
-      document.querySelectorAll('#spot-list > div').forEach(c => {
-        c.classList.remove('border-sky-500', 'bg-sky-50/50', 'ring-2', 'ring-sky-200');
-      });
+    // 4. 検索機能
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const keyword = e.target.value.toLowerCase();
+      const filtered = allSpots.filter(s => 
+        s.name.toLowerCase().includes(keyword) || 
+        s.description.toLowerCase().includes(keyword)
+      );
+      renderSpots(filtered);
+    });
 
-      const targetCard = document.getElementById(`spot-card-${spotId}`);
-      if (targetCard) {
-        targetCard.classList.add('border-sky-500', 'bg-sky-50/50', 'ring-2', 'ring-sky-200');
-        targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // 5. カテゴリ絞り込み
+    function filterCategory(cat) {
+      document.querySelectorAll('.cat-btn').forEach(b => {
+        b.classList.remove('bg-blue-600', 'text-white');
+        b.classList.add('bg-gray-100', 'text-gray-700');
+      });
+      event.target.classList.remove('bg-gray-100', 'text-gray-700');
+      event.target.classList.add('bg-blue-600', 'text-white');
+
+      if (cat === 'all') {
+        renderSpots(allSpots);
+      } else {
+        const filtered = allSpots.filter(s => s.category.includes(cat));
+        renderSpots(filtered);
       }
     }
 
-    // --- ２点間の距離計算 (ヒュベニの公式/Haversine) ---
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // 地球の半径(km)
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = 
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
+    // 6. 現在地取得 & 距離計算
+    function getCurrentLocation() {
+      map.locate({ setView: true, maxZoom: 14 });
     }
 
-    // --- 現在地更新 ---
-    function updateDistances() {
-      if (!userLocation) return;
+    map.on('locationfound', (e) => {
+      userLat = e.latlng.lat;
+      userLng = e.latlng.lng;
 
-      spotsData.forEach(spot => {
-        spot.distance = calculateDistance(userLocation.lat, userLocation.lng, spot.lat, spot.lng);
+      if (userMarker) map.removeLayer(userMarker);
+
+      userMarker = L.marker([userLat, userLng]).addTo(map)
+        .bindPopup('<b>あなたの現在地</b>').openPopup();
+
+      // 距離を計算して近い順にソート
+      allSpots.forEach(s => {
+        s.distance = map.distance([userLat, userLng], [s.lat, s.lng]) / 1000; // km換算
       });
 
-      document.getElementById('sort-distance-btn').disabled = false;
-      document.getElementById('distance-status').innerHTML = `<span class="text-emerald-600 font-medium"><i class="fa-solid fa-circle-check"></i> 現在地取得済み</span>`;
+      allSpots.sort((a, b) => a.distance - b.distance);
+      renderSpots(allSpots);
+    });
 
-      updateAppUI();
-    }
-
-    // --- イベントリスナー設定 ---
-    function setupEventListeners() {
-      // 検索入力イベント
-      const searchInput = document.getElementById('search-input');
-      const clearBtn = document.getElementById('clear-search');
-
-      searchInput.addEventListener('input', () => {
-        if (searchInput.value.length > 0) {
-          clearBtn.classList.remove('hidden');
-        } else {
-          clearBtn.classList.add('hidden');
-        }
-        updateAppUI();
-      });
-
-      clearBtn.addEventListener('click', () => {
-        searchInput.value = '';
-        clearBtn.classList.add('hidden');
-        updateAppUI();
-      });
-
-      // カテゴリーフィルターボタン
-      document.querySelectorAll('.category-filter').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          document.querySelectorAll('.category-filter').forEach(b => {
-            b.classList.remove('active', 'bg-sky-600', 'text-white');
-            b.classList.add('bg-slate-100', 'text-slate-600');
-          });
-
-          const targetBtn = e.currentTarget;
-          targetBtn.classList.add('active', 'bg-sky-600', 'text-white');
-          targetBtn.classList.remove('bg-slate-100', 'text-slate-600');
-
-          selectedCategory = targetBtn.dataset.category;
-          updateAppUI();
-        });
-      });
-
-      // 距離順ソートボタン
-      document.getElementById('sort-distance-btn').addEventListener('click', () => {
-        if (!userLocation) return;
-
-        filteredSpots.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-        renderSpotCards();
-      });
-
-      // 現在地取得ボタン
-      document.getElementById('locate-btn').addEventListener('click', () => {
-        if (!navigator.geolocation) {
-          alert('お使いのブラウザは位置情報サービスに対応していません。');
-          return;
-        }
-
-        const locateBtn = document.getElementById('locate-btn');
-        locateBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sky-600"></i> 取得中...`;
-
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            userLocation = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            };
-
-            // 現在地マーカー表示
-            if (userMarker) map.removeLayer(userMarker);
-
-            const userIcon = L.divIcon({
-              html: `<div class="w-5 h-5 bg-blue-500 border-2 border-white user-location-marker"></div>`,
-              className: '',
-              iconSize: [20, 20],
-              iconAnchor: [10, 10]
-            });
-
-            userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
-              .bindPopup('<b>あなたの現在地</b>')
-              .addTo(map);
-
-            map.flyTo([userLocation.lat, userLocation.lng], 13, { duration: 1.5 });
-
-            locateBtn.innerHTML = `<i class="fa-solid fa-location-crosshairs text-sky-600 text-lg"></i> <span class="hidden sm:inline">現在地を取得</span>`;
-
-            updateDistances();
-          },
-          (error) => {
-            locateBtn.innerHTML = `<i class="fa-solid fa-location-crosshairs text-sky-600 text-lg"></i> <span class="hidden sm:inline">現在地を取得</span>`;
-            alert('現在地の取得に失敗しました。位置情報の利用を許可しているか確認してください。');
-          },
-          { enableHighAccuracy: true, timeout: 8000 }
-        );
-      });
-    }
+    map.on('locationerror', () => {
+      alert('現在地を取得できませんでした。ブラウザの位置情報を許可してください。');
+    });
   </script>
 </body>
 </html>
