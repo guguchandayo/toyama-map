@@ -10,6 +10,20 @@
   <style>
     #map { height: 100vh; width: 100%; }
     .leaflet-popup-content-wrapper { border-radius: 8px; }
+    .insta-btn {
+      display: inline-flex;
+      items-center: center;
+      gap: 4px;
+      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      color: white;
+      font-weight: bold;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-top: 6px;
+      text-decoration: none;
+    }
+    .insta-btn:hover { opacity: 0.9; }
   </style>
 </head>
 <body class="bg-gray-100 flex flex-col md:flex-row h-screen">
@@ -47,11 +61,13 @@
       header: true,
       complete: function(res) {
         spotsData = res.data.map(function(row) {
-          // 日本語・英語どちらの列名でも読み込めるように修正
+          // instaKetword または instaKeyword の列名に対応
+          var kw = row['instaKetword'] || row['instaKeyword'] || row['ハッシュタグ'] || '';
           return {
             name: row['name'] || row['名称'] || row['名前'] || 'スポット',
             desc: row['description'] || row['詳細'] || row['説明'] || '',
             category: row['category'] || row['カテゴリ'] || '',
+            instaKw: kw.trim(),
             lat: parseFloat(row['lat'] || row['緯度']),
             lng: parseFloat(row['lng'] || row['経度'])
           };
@@ -66,8 +82,17 @@
       var listHtml = '';
 
       data.forEach(function(s) {
+        // インスタボタンのHTML作成
+        var instaHtml = '';
+        if (s.instaKw) {
+          var encodedKw = encodeURIComponent(s.instaKw);
+          var instaUrl = 'https://www.instagram.com/explore/tags/' + encodedKw + '/';
+          instaHtml = '<br><a href="' + instaUrl + '" target="_blank" class="insta-btn"><i class="fa-brands fa-instagram"></i> #' + s.instaKw + ' を見る</a>';
+        }
+
         var popContent = '<b>' + s.name + '</b>';
         if (s.desc) popContent += '<br>' + s.desc;
+        popContent += instaHtml;
 
         var m = L.marker([s.lat, s.lng]).bindPopup(popContent);
         markerGroup.addLayer(m);
@@ -75,6 +100,7 @@
         listHtml += '<div class="p-2 border rounded hover:bg-gray-50 cursor-pointer" onclick="clickSpot(' + s.lat + ',' + s.lng + ')">' +
                     '<b>' + s.name + '</b>' +
                     (s.desc ? '<p class="text-xs text-gray-500 mt-0.5">' + s.desc + '</p>' : '') + 
+                    (s.instaKw ? '<div class="mt-1"><a href="https://www.instagram.com/explore/tags/' + encodeURIComponent(s.instaKw) + '/" target="_blank" class="insta-btn" onclick="event.stopPropagation();"><i class="fa-brands fa-instagram"></i> #' + s.instaKw + '</a></div>' : '') +
                     '</div>';
       });
 
@@ -88,7 +114,7 @@
     document.getElementById('searchInput').addEventListener('input', function(e) {
       var val = e.target.value.toLowerCase();
       var filtered = spotsData.filter(function(s) {
-        return s.name.toLowerCase().includes(val) || s.desc.toLowerCase().includes(val);
+        return s.name.toLowerCase().includes(val) || s.desc.toLowerCase().includes(val) || s.instaKw.toLowerCase().includes(val);
       });
       drawMarkers(filtered);
     });
