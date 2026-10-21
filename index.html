@@ -7,13 +7,28 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
     #map {
       height: 100vh;
       width: 100%;
     }
-    body {
-      margin: 0;
-      padding: 0;
+    /* 現在地ボタンのスタイル */
+    .location-btn {
+      background: #ffffff;
+      border: 2px solid rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    }
+    .location-btn:hover {
+      background: #f4f4f4;
     }
   </style>
 </head>
@@ -23,46 +38,81 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- PapaParse JS (CSVパース用ライブラリ) -->
+  <!-- PapaParse JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <script>
-    // 1. 富山県を中心に地図を初期化 (緯度, 経度, ズームレベル)
+    // 1. 富山県を中心に地図を初期化
     const map = L.map('map').setView([36.6953, 137.2113], 10);
 
-    // 国土地理院タイル（または OpenStreetMap）を表示
+    // 背景地図（OpenStreetMap）
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // 2. スプレッドシートのCSV URL
+    // 2. CSVデータを取得してマーカーを表示
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
 
-    // 3. CSVデータを取得して解析
     Papa.parse(csvUrl, {
       download: true,
-      header: true, // 1行目を列名として扱う
+      header: true,
       complete: function(results) {
-        const data = results.data;
-        
-        data.forEach(row => {
-          // ※スプレッドシートの列名に合わせて「lat/lng」や「緯度/経度」、「名称」などを変更してください
+        results.data.forEach(row => {
           const lat = parseFloat(row['緯度'] || row['lat'] || row['Latitude']);
           const lng = parseFloat(row['経度'] || row['lng'] || row['Longitude']);
           const name = row['名称'] || row['名前'] || row['Name'] || 'スポット';
           const description = row['詳細'] || row['説明'] || '';
 
           if (!isNaN(lat) && !isNaN(lng)) {
-            // ピンを設置してポップアップを設定
             L.marker([lat, lng])
               .addTo(map)
               .bindPopup(`<b>${name}</b><br>${description}`);
           }
         });
-      },
-      error: function(err) {
-        console.error('CSVの読み込みに失敗しました:', err);
       }
+    });
+
+    // 3. 現在地表示機能の追加
+    let currentLocationMarker = null;
+
+    // 地図上にカスタムボタンを追加
+    const locationControl = L.control({ position: 'topright' });
+
+    locationControl.onAdd = function() {
+      const btn = L.DomUtil.create('button', 'location-btn');
+      btn.innerHTML = '📍 現在地を表示';
+      btn.onclick = function(e) {
+        e.stopPropagation(); // ボタンクリック時のイベント伝播を防止
+        
+        // ブラウザの現在地取得機能を実行
+        map.locate({ setView: true, maxZoom: 15 });
+      };
+      return btn;
+    };
+
+    locationControl.addTo(map);
+
+    // 現在地が見つかった時の処理
+    map.on('locationfound', function(e) {
+      // すでに現在地ピンがあれば削除
+      if (currentLocationMarker) {
+        map.removeLayer(currentLocationMarker);
+      }
+
+      // 現在地に青いサークルを表示
+      currentLocationMarker = L.circleMarker(e.latlng, {
+        radius: 8,
+        fillColor: '#0078ff',
+        color: '#ffffff',
+        weight: 3,
+        opacity: 1,
+        fillOpacity: 0.8
+      }).addTo(map).bindPopup('あなたの現在地').openPopup();
+    });
+
+    // 位置情報の取得に失敗した場合
+    map.on('locationerror', function(e) {
+      alert('現在地を取得できませんでした。ブラウザの位置情報利用を許可してください。');
     });
   </script>
 </body>
