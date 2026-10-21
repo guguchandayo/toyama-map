@@ -33,7 +33,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <script>
-    // 地図の初期化
     var myMap = L.map('map').setView([36.6953, 137.2113], 10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap'
@@ -48,11 +47,13 @@
       header: true,
       complete: function(res) {
         spotsData = res.data.map(function(row) {
+          // 日本語・英語どちらの列名でも読み込めるように修正
           return {
-            name: row['名称'] || row['名前'] || 'スポット',
-            desc: row['詳細'] || row['説明'] || '',
-            lat: parseFloat(row['緯度'] || row['lat']),
-            lng: parseFloat(row['経度'] || row['lng'])
+            name: row['name'] || row['名称'] || row['名前'] || 'スポット',
+            desc: row['description'] || row['詳細'] || row['説明'] || '',
+            category: row['category'] || row['カテゴリ'] || '',
+            lat: parseFloat(row['lat'] || row['緯度']),
+            lng: parseFloat(row['lng'] || row['経度'])
           };
         }).filter(function(s) { return !isNaN(s.lat) && !isNaN(s.lng); });
 
@@ -65,11 +66,16 @@
       var listHtml = '';
 
       data.forEach(function(s) {
-        var m = L.marker([s.lat, s.lng]).bindPopup('<b>' + s.name + '</b><br>' + s.desc);
+        var popContent = '<b>' + s.name + '</b>';
+        if (s.desc) popContent += '<br>' + s.desc;
+
+        var m = L.marker([s.lat, s.lng]).bindPopup(popContent);
         markerGroup.addLayer(m);
 
         listHtml += '<div class="p-2 border rounded hover:bg-gray-50 cursor-pointer" onclick="clickSpot(' + s.lat + ',' + s.lng + ')">' +
-                    '<b>' + s.name + '</b><p class="text-xs text-gray-500">' + s.desc + '</p></div>';
+                    '<b>' + s.name + '</b>' +
+                    (s.desc ? '<p class="text-xs text-gray-500 mt-0.5">' + s.desc + '</p>' : '') + 
+                    '</div>';
       });
 
       document.getElementById('spotList').innerHTML = listHtml || '<p class="text-gray-400">データがありません</p>';
