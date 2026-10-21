@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>富山県マップアプリ</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- PapaParse JS (CSVパース用ライブラリ) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <script>
+    // 1. 富山県を中心に地図を初期化 (緯度, 経度, ズームレベル)
+    const map = L.map('map').setView([36.6953, 137.2113], 10);
+
+    // 国土地理院タイル（または OpenStreetMap）を表示
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // 2. スプレッドシートのCSV URL
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
+
+    // 3. CSVデータを取得して解析
+    Papa.parse(csvUrl, {
+      download: true,
+      header: true, // 1行目を列名として扱う
+      complete: function(results) {
+        const data = results.data;
+        
+        data.forEach(row => {
+          // ※スプレッドシートの列名に合わせて「lat/lng」や「緯度/経度」、「名称」などを変更してください
+          const lat = parseFloat(row['緯度'] || row['lat'] || row['Latitude']);
+          const lng = parseFloat(row['経度'] || row['lng'] || row['Longitude']);
+          const name = row['名称'] || row['名前'] || row['Name'] || 'スポット';
+          const description = row['詳細'] || row['説明'] || '';
+
+          if (!isNaN(lat) && !isNaN(lng)) {
+            // ピンを設置してポップアップを設定
+            L.marker([lat, lng])
+              .addTo(map)
+              .bindPopup(`<b>${name}</b><br>${description}`);
+          }
+        });
+      },
+      error: function(err) {
+        console.error('CSVの読み込みに失敗しました:', err);
+      }
+    });
+  </script>
+</body>
+</html>
