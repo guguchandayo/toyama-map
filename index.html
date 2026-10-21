@@ -16,11 +16,11 @@
       border-radius: 20px;
       padding: 0px;
       overflow: hidden;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.3);
     }
     .leaflet-popup-content {
       margin: 0 !important;
-      width: 270px !important;
+      width: 280px !important;
     }
 
     .insta-btn {
@@ -31,7 +31,7 @@
 
 <body class="bg-amber-50 flex flex-col md:flex-row h-screen overflow-hidden font-sans">
 
-  <!-- サイドバー（スマホ時は下部） -->
+  <!-- サイドバー -->
   <div class="w-full md:w-80 bg-white shadow-xl flex flex-col z-10 h-1/3 md:h-full order-2 md:order-1 border-r border-amber-100">
     
     <!-- ヘッダー -->
@@ -39,22 +39,22 @@
       <h1 class="text-base font-extrabold flex items-center gap-2">
         <i class="fa-solid fa-utensils text-yellow-200"></i> 富山大生の腹ペコ食いしん坊マップ 😋
       </h1>
-      <p class="text-[11px] text-orange-100 mt-1 font-medium">現役大生おすすめ！リアルな絶品飯・映えスポット</p>
+      <p class="text-[11px] text-orange-100 mt-1 font-medium">タップで写真＆レビュー！気になったらSNSへ飛ばせるよ</p>
     </div>
 
     <!-- 検索 & フィルター -->
     <div class="p-3 border-b border-amber-100 space-y-2 bg-amber-50/50">
       <div class="relative">
         <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-amber-400 text-sm"></i>
-        <input type="text" id="searchInput" placeholder="ガッツリ飯・カフェ・ハッシュタグで検索..." 
+        <input type="text" id="searchInput" placeholder="店名・レビュー・ジャンルで検索..." 
                class="w-full pl-9 pr-3 py-1.5 border border-amber-200 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white">
       </div>
       
       <!-- カテゴリタグ -->
       <div class="flex gap-1 overflow-x-auto pb-1 text-[11px]" id="categoryFilter">
-        <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-bold px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm">全部見たい！</button>
+        <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-bold px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
         <button onclick="filterCategory('がっつり飯')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">がっつり飯 🍜</button>
-        <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">放課後カフェ ☕️</button>
+        <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">カフェ ☕️</button>
         <button onclick="filterCategory('金欠')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">金欠の味方 💸</button>
       </div>
     </div>
@@ -93,13 +93,12 @@
     let markerGroup = L.layerGroup().addTo(myMap);
     let userMarker = null;
 
-    // 食いしん坊カテゴリごとのピン色
     function getCategoryColor(cat) {
       if (!cat) return '#F97316';
-      if (cat.includes('がっつり') || cat.includes('ラーメン') || cat.includes('肉')) return '#EF4444'; // 赤
-      if (cat.includes('カフェ') || cat.includes('スイーツ')) return '#F59E0B'; // オレンジ
-      if (cat.includes('金欠') || cat.includes('コスパ')) return '#10B981'; // 緑
-      return '#3B82F6'; // 青
+      if (cat.includes('がっつり') || cat.includes('ラーメン') || cat.includes('肉')) return '#EF4444';
+      if (cat.includes('カフェ') || cat.includes('スイーツ')) return '#F59E0B';
+      if (cat.includes('金欠') || cat.includes('コスパ')) return '#10B981';
+      return '#3B82F6';
     }
 
     Papa.parse(csvUrl, {
@@ -115,11 +114,18 @@
             img = `https://source.unsplash.com/400x250/?food,${encodeURIComponent(kw || name)}`;
           }
 
+          // GoogleマップURL（入力がなければ自動生成）
+          let gmap = row['googleMap'] || row['google_map'] || row['Googleマップ'] || '';
+          if (!gmap) {
+            gmap = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' 富山')}`;
+          }
+
           return {
             name: name,
             desc: row['description'] || row['詳細'] || row['説明'] || 'おいしい噂を聞きつけて調査中！',
             category: row['category'] || row['カテゴリ'] || 'グルメ',
             instaKw: kw.trim(),
+            gmapUrl: gmap,
             imgUrl: img,
             lat: parseFloat(row['lat'] || row['緯度']),
             lng: parseFloat(row['lng'] || row['経度'])
@@ -145,20 +151,35 @@
         const encodedKw = encodeURIComponent(s.instaKw);
         const instaUrl = `https://www.instagram.com/explore/tags/${encodedKw}/`;
 
+        // ★タップしてすぐ見える「写真＋レビュー」カード
         const popupContent = `
           <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
-            <div class="relative h-32 w-full bg-amber-100">
+            <!-- 1. ドカンと大きな写真 -->
+            <div class="relative h-36 w-full bg-amber-100">
               <img src="${s.imgUrl}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&auto=format&fit=crop'">
               <span class="absolute top-2 left-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white shadow-md" style="background-color:${color}">${s.category}</span>
             </div>
-            <div class="p-3">
+            
+            <div class="p-3.5">
+              <!-- 店名 -->
               <h3 class="font-extrabold text-gray-900 text-sm leading-tight">${s.name}</h3>
-              <p class="text-xs text-gray-600 mt-1 leading-snug line-clamp-3">${s.desc}</p>
-              ${s.instaKw ? `
-                <a href="${instaUrl}" target="_blank" class="insta-btn w-full mt-2.5 py-2 px-3 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow hover:opacity-90 transition">
-                  <i class="fa-brands fa-instagram text-sm"></i> 📸 みんなの映え飯を見る (#${s.instaKw})
+              
+              <!-- 2. 大学生の一言レビュー -->
+              <div class="bg-amber-50/80 p-2 rounded-xl mt-2 border border-amber-100/60">
+                <p class="text-xs text-gray-700 leading-snug font-medium">💬 "${s.desc}"</p>
+              </div>
+
+              <!-- 3. もっと見たい人だけ飛べる2つのボタン -->
+              <div class="grid grid-cols-2 gap-1.5 mt-3">
+                ${s.instaKw ? `
+                  <a href="${instaUrl}" target="_blank" class="insta-btn py-1.5 px-2 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 shadow hover:opacity-90 transition">
+                    <i class="fa-brands fa-instagram text-xs"></i> インスタ
+                  </a>
+                ` : ''}
+                <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1.5 px-2 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 shadow hover:bg-emerald-700 transition">
+                  <i class="fa-solid fa-map-location-dot text-xs"></i> Googleマップ
                 </a>
-              ` : ''}
+              </div>
             </div>
           </div>
         `;
@@ -174,6 +195,7 @@
 
         markerGroup.addLayer(marker);
 
+        // 左側リスト
         const card = document.createElement('div');
         card.className = 'bg-white p-3 border border-amber-100 rounded-2xl hover:shadow-lg transition cursor-pointer flex gap-3 items-center group';
         card.innerHTML = `
@@ -184,11 +206,6 @@
               <span class="text-[9px] font-bold px-1.5 py-0.5 rounded text-white whitespace-nowrap" style="background-color:${color}">${s.category}</span>
             </div>
             <p class="text-[11px] text-gray-500 truncate mt-0.5">${s.desc}</p>
-            ${s.instaKw ? `
-              <a href="${instaUrl}" target="_blank" onclick="event.stopPropagation();" class="inline-flex items-center gap-1 text-[10px] font-extrabold text-pink-600 mt-1 hover:underline">
-                <i class="fa-brands fa-instagram"></i> #${s.instaKw}
-              </a>
-            ` : ''}
           </div>
         `;
 
