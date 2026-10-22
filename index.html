@@ -161,7 +161,7 @@
     let spotsData = [];
     let currentFilterCat = 'all';
     let currentSearchVal = '';
-    let currentSortMode = 'default'; // 'default', 'distance', 'likes'
+    let currentSortMode = 'default';
 
     let markerGroup = L.layerGroup().addTo(myMap);
     let userMarker = null;
@@ -228,14 +228,30 @@
       myMap.closePopup();
     }
 
-    function getInstaThumbnail(url) {
-      if (!url) return '';
-      if (url.match(/\.(jpeg|jpg|gif|png|webp)/i)) return url;
-      if (url.includes('instagram.com/p/') || url.includes('instagram.com/reel/')) {
-        const cleanUrl = url.split('?')[0].replace(/\/$/, '');
+    // ★Googleドライブリンクや各種画像の自動最適化関数★
+    function processImageUrl(rawUrl, fallbackPostUrl) {
+      if (!rawUrl) rawUrl = fallbackPostUrl || '';
+      
+      // 1. Googleドライブの共有リンク（/file/d/●●●/ 形式）を自動検出して画像直リンクへ変換
+      if (rawUrl.includes('drive.google.com')) {
+        const matches = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (matches && matches[1]) {
+          return `https://drive.google.com/uc?export=view&id=${matches[1]}`;
+        }
+      }
+
+      // 2. Instagramの投稿URL
+      if (rawUrl.includes('instagram.com/p/') || rawUrl.includes('instagram.com/reel/')) {
+        const cleanUrl = rawUrl.split('?')[0].replace(/\/$/, '');
         return `${cleanUrl}/media/?size=l`;
       }
-      return url;
+
+      // 3. 画像直リンク（jpg, png 等）
+      if (rawUrl.match(/\.(jpeg|jpg|gif|png|webp)/i)) {
+        return rawUrl;
+      }
+
+      return rawUrl;
     }
 
     function getMyLikes() {
@@ -307,8 +323,8 @@
             const kw = row['instaKeyword'] || row['instaKetword'] || row['ハッシュタグ'] || name;
             let postUrl = row['postUrl'] || row['postURL'] || row['投稿URL'] || row['link'] || 'https://www.instagram.com/onakaguguchan/';
 
-            let rawImg = row['image'] || row['image_url'] || row['画像'] || postUrl;
-            let img = getInstaThumbnail(rawImg);
+            let rawImg = row['image'] || row['image_url'] || row['画像'] || '';
+            let img = processImageUrl(rawImg, postUrl);
 
             if (!img || img === 'https://www.instagram.com/onakaguguchan/') {
               img = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop';
@@ -359,11 +375,9 @@
       }
     });
 
-    // 検索・カテゴリ・並び替えを一括適用して描画
     function applyFilterAndDraw() {
       let result = [...spotsData];
 
-      // 1. 検索絞り込み
       if (currentSearchVal) {
         result = result.filter(s => 
           s.name.toLowerCase().includes(currentSearchVal) || 
@@ -373,12 +387,10 @@
         );
       }
 
-      // 2. カテゴリ絞り込み
       if (currentFilterCat !== 'all') {
         result = result.filter(s => s.category.includes(currentFilterCat) || s.desc.includes(currentFilterCat));
       }
 
-      // 3. ソート（並び替え）
       if (currentSortMode === 'distance' && userLatLng) {
         result.sort((a, b) => {
           const distA = calculateRawDistance(userLatLng.lat, userLatLng.lng, a.lat, a.lng);
@@ -512,13 +524,11 @@
       });
     }
 
-    // 検索入力イベント
     document.getElementById('searchInput').addEventListener('input', function(e) {
       currentSearchVal = e.target.value.toLowerCase();
       applyFilterAndDraw();
     });
 
-    // カテゴリフィルター切り替え
     function filterCategory(cat) {
       currentFilterCat = cat;
       document.querySelectorAll('#categoryFilter button').forEach(b => {
@@ -531,7 +541,6 @@
       applyFilterAndDraw();
     }
 
-    // ソートモード切り替え
     function setSortMode(mode) {
       if (mode === 'distance' && !userLatLng) {
         alert('現在地が取得されていません！右上の「現在地」ボタンを押してね！');
@@ -565,7 +574,6 @@
 
       userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(myMap).bindPopup('<b class="text-xs font-black p-1 block">📍 現在地</b>').openPopup();
 
-      // 現在地を取得したら自動的に「📍 近い順」に切り替えてリスト更新
       currentSortMode = 'distance';
       const btns = document.querySelectorAll('#sortFilter button');
       btns.forEach(b => {
