@@ -40,7 +40,6 @@
       transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* カスタムピンデザイン */
     .custom-food-pin {
       display: flex;
       align-items: center;
@@ -90,7 +89,7 @@
       <span class="text-[10px] font-black text-orange-600 tracking-wider">スワイプ / タップでリスト拡大 ↕️</span>
     </div>
 
-    <!-- ヘッダー（タイトル更新＆大学生風ポップデザイン） -->
+    <!-- ヘッダー -->
     <div class="px-4 py-3 md:p-4 bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-md flex items-center justify-between md:block">
       <div>
         <h1 class="text-sm md:text-base font-black flex items-center gap-1.5 tracking-tight drop-shadow-sm">
@@ -164,6 +163,20 @@
     let likeCounts = {};
     let isExpanded = false;
 
+    // InstagramのURLからサムネイル画像を自動生成する関数
+    function getInstaThumbnail(url) {
+      if (!url) return '';
+      // 直リンク画像ならそのまま返す
+      if (url.match(/\.(jpeg|jpg|gif|png|webp)/i)) return url;
+      
+      // Instagramの投稿/リールURLの場合、メディア埋め込み画像に自動変換
+      if (url.includes('instagram.com/p/') || url.includes('instagram.com/reel/')) {
+        const cleanUrl = url.split('?')[0].replace(/\/$/, '');
+        return `${cleanUrl}/media/?size=l`;
+      }
+      return url;
+    }
+
     function toggleSheetSize() {
       const sheet = document.getElementById('bottomSheet');
       if (isExpanded) {
@@ -189,7 +202,7 @@
 
     function toggleLike(spotName) {
       const myLikes = getMyLikes();
-      const currentlyLiked = !!myLikes[spotName];
+      const currentlyLiked = !myLikes[spotName];
       const newLiked = !currentlyLiked;
 
       setMyLike(spotName, newLiked);
@@ -207,7 +220,6 @@
       drawMarkers(spotsData);
     }
 
-    // カテゴリごとの「カラー」と「絵文字」設定
     function getCategoryStyle(cat) {
       if (!cat) return { color: '#F97316', emoji: '😋' };
       if (cat.includes('がっつり') || cat.includes('ラーメン') || cat.includes('肉')) {
@@ -249,9 +261,13 @@
             if (!name) return null;
 
             const kw = row['instaKeyword'] || row['instaKetword'] || row['ハッシュタグ'] || name;
-            
-            let img = row['image'] || row['image_url'] || row['画像'] || '';
-            if (!img) {
+            let postUrl = row['postUrl'] || row['postURL'] || row['投稿URL'] || row['link'] || 'https://www.instagram.com/onakaguguchan/';
+
+            // ① image列があればそこから画像を取得、無ければ postUrl から自動生成！
+            let rawImg = row['image'] || row['image_url'] || row['画像'] || postUrl;
+            let img = getInstaThumbnail(rawImg);
+
+            if (!img || img === 'https://www.instagram.com/onakaguguchan/') {
               img = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop';
             }
 
@@ -259,8 +275,6 @@
             if (!gmap) {
               gmap = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' 富山')}`;
             }
-
-            let postUrl = row['postUrl'] || row['postURL'] || row['投稿URL'] || row['link'] || 'https://www.instagram.com/onakaguguchan/';
 
             const rawLat = String(row['lat'] || row['緯度'] || '').replace(/[^\d.]/g, '');
             const rawLng = String(row['lng'] || row['経度'] || '').replace(/[^\d.]/g, '');
@@ -314,7 +328,7 @@
       const myLikes = getMyLikes();
 
       data.forEach(function(s) {
-        const catStyle = getCategoryColorStyle = getCategoryStyle(s.category);
+        const catStyle = getCategoryStyle(s.category);
         const encodedKw = encodeURIComponent(s.instaKw);
         const instaSearchUrl = `https://www.instagram.com/explore/tags/${encodedKw}/`;
         const count = likeCounts[s.name] || 0;
@@ -326,7 +340,6 @@
           distText = `📍 現在地から ${dist}`;
         }
 
-        // ポップアップデザイン
         const popupContent = `
           <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
             <div class="relative h-36 w-full bg-orange-100">
@@ -351,7 +364,6 @@
                 <p class="text-xs text-gray-700 leading-snug font-bold">💬 "${s.desc}"</p>
               </div>
 
-              <!-- アクションボタン（白文字でハッキリ） -->
               <div class="space-y-1.5 mt-3">
                 <a href="${s.postUrl}" target="_blank" class="w-full py-2 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[11px] font-black rounded-xl flex items-center justify-center gap-1.5 shadow-md hover:opacity-90 transition">
                   <i class="fa-brands fa-instagram text-white text-sm"></i> <span class="text-white">@onakaguguchan の投稿を見る</span>
@@ -372,7 +384,6 @@
           </div>
         `;
 
-        // カスタム絵文字アイコンのピンを作成
         const foodPinIcon = L.divIcon({
           className: 'custom-pin-wrapper',
           html: `<div class="custom-food-pin" style="background-color: ${catStyle.color}">${catStyle.emoji}</div>`,
@@ -384,7 +395,6 @@
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent);
         markerGroup.addLayer(marker);
 
-        // サイドバーの店舗カード
         const card = document.createElement('div');
         card.className = 'bg-white p-3 border-2 border-orange-100 rounded-2xl hover:border-orange-300 hover:shadow-md transition cursor-pointer flex gap-3 items-center group relative overflow-hidden';
         
@@ -466,10 +476,6 @@
 
     myMap.on('locationerror', function() {
       alert('現在地を取得できませんでした。スマホの設定で位置情報を許可してね！');
-    });
-  </script>
-</body>
-</html>
     });
   </script>
 </body>
