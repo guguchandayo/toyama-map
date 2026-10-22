@@ -14,7 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
   <style>
-    #map { height: 100vh; width: 100%; z-index: 0; }
+    #map { height: 100%; width: 100%; z-index: 0; }
     
     .leaflet-popup-content-wrapper {
       border-radius: 20px;
@@ -24,61 +24,74 @@
     }
     .leaflet-popup-content {
       margin: 0 !important;
-      width: 290px !important;
+      width: 280px !important;
     }
 
     .insta-btn {
       background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    }
+
+    /* スマホ用ボトムシートアニメーション */
+    #bottomSheet {
+      transition: height 0.3s ease-in-out;
     }
   </style>
 </head>
 
 <body class="bg-amber-50 flex flex-col md:flex-row h-screen overflow-hidden font-sans">
 
-  <!-- サイドバー -->
-  <div class="w-full md:w-80 bg-white shadow-xl flex flex-col z-10 h-1/3 md:h-full order-2 md:order-1 border-r border-amber-100">
-    
-    <!-- ヘッダー -->
-    <div class="p-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md">
-      <h1 class="text-base font-extrabold flex items-center gap-2">
-        <i class="fa-solid fa-utensils text-yellow-200"></i> 富山大生の腹ペコ食いしん坊マップ 😋
-      </h1>
-      <p class="text-[11px] text-orange-100 mt-1 font-medium">推し店に「いいね❤️」して応援しよう！</p>
-    </div>
-
-    <!-- 検索 & フィルター -->
-    <div class="p-3 border-b border-amber-100 space-y-2 bg-amber-50/50">
-      <div class="relative">
-        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-amber-400 text-sm"></i>
-        <input type="text" id="searchInput" placeholder="店名・レビュー・ジャンルで検索..." 
-               class="w-full pl-9 pr-3 py-1.5 border border-amber-200 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white">
-      </div>
-      
-      <!-- カテゴリタグ -->
-      <div class="flex gap-1 overflow-x-auto pb-1 text-[11px]" id="categoryFilter">
-        <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-bold px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
-        <button onclick="filterCategory('がっつり飯')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">がっつり飯 🍜</button>
-        <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">カフェ ☕️</button>
-        <button onclick="filterCategory('観光')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">観光・ドライブ 🚗</button>
-        <button onclick="filterCategory('金欠')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">金欠の味方 💸</button>
-      </div>
-    </div>
-
-    <!-- スポットリスト -->
-    <div id="spotList" class="flex-1 overflow-y-auto p-3 space-y-3">
-      <p class="text-amber-800/60 text-center py-4 text-xs font-bold">うまい飯データを読み込み中...🍚</p>
-    </div>
-  </div>
-
-  <!-- マップエリア -->
-  <div class="flex-1 relative h-2/3 md:h-full order-1 md:order-2">
+  <!-- マップエリア（スマホ時は背面〜上部） -->
+  <div class="flex-1 relative h-full order-1 md:order-2">
     <div id="map"></div>
     
     <!-- 現在地ボタン -->
     <button onclick="getLocation()" 
-            class="absolute top-4 right-4 bg-white/90 backdrop-blur hover:bg-white text-orange-600 font-extrabold py-2.5 px-4 border border-orange-200 rounded-full shadow-lg z-[1000] flex items-center gap-2 text-xs transition transform active:scale-95">
+            class="absolute top-4 right-4 bg-white/90 backdrop-blur hover:bg-white text-orange-600 font-extrabold py-2 px-3.5 border border-orange-200 rounded-full shadow-lg z-[1000] flex items-center gap-1.5 text-xs transition transform active:scale-95">
       <i class="fa-solid fa-location-dot text-red-500 text-sm"></i> 今どこ？お腹すいた！
     </button>
+  </div>
+
+  <!-- サイドバー / スマホ用可変ボトムシート -->
+  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[45vh] md:h-full order-2 md:order-1 border-t md:border-t-0 md:border-r border-amber-200 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0">
+    
+    <!-- スマホ専用：高さ変更つまみバー -->
+    <div onclick="toggleSheetSize()" class="md:hidden w-full py-2 flex flex-col items-center justify-center cursor-pointer bg-amber-50 rounded-t-3xl border-b border-amber-100/60 active:bg-amber-100">
+      <div class="w-12 h-1.5 bg-amber-300 rounded-full mb-1"></div>
+      <span class="text-[10px] font-bold text-amber-700/80">タップで一覧をひろげる ↕️</span>
+    </div>
+
+    <!-- ヘッダー（スマホ用に少しスリム化） -->
+    <div class="px-4 py-2.5 md:p-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm flex items-center justify-between md:block">
+      <div>
+        <h1 class="text-sm md:text-base font-extrabold flex items-center gap-1.5">
+          <i class="fa-solid fa-utensils text-yellow-200"></i> 富山大生の腹ペコ食いしん坊マップ 😋
+        </h1>
+        <p class="text-[10px] md:text-[11px] text-orange-100 font-medium hidden md:block">推し店に「いいね❤️」して応援しよう！</p>
+      </div>
+    </div>
+
+    <!-- 検索 & フィルター -->
+    <div class="p-2.5 md:p-3 border-b border-amber-100 space-y-2 bg-amber-50/40">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2 text-amber-400 text-xs"></i>
+        <input type="text" id="searchInput" placeholder="店名・レビュー・ジャンルで検索..." 
+               class="w-full pl-8 pr-3 py-1 border border-amber-200 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white">
+      </div>
+      
+      <!-- カテゴリタグ -->
+      <div class="flex gap-1 overflow-x-auto pb-1 text-[11px]" id="categoryFilter">
+        <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
+        <button onclick="filterCategory('がっつり飯')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-0.5 rounded-full whitespace-nowrap hover:bg-orange-50">がっつり飯 🍜</button>
+        <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-0.5 rounded-full whitespace-nowrap hover:bg-orange-50">カフェ ☕️</button>
+        <button onclick="filterCategory('観光')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-0.5 rounded-full whitespace-nowrap hover:bg-orange-50">観光・ドライブ 🚗</button>
+        <button onclick="filterCategory('金欠')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-0.5 rounded-full whitespace-nowrap hover:bg-orange-50">金欠の味方 💸</button>
+      </div>
+    </div>
+
+    <!-- スポットリスト -->
+    <div id="spotList" class="flex-1 overflow-y-auto p-2.5 md:p-3 space-y-2.5">
+      <p class="text-amber-800/60 text-center py-4 text-xs font-bold">うまい飯データを読み込み中...🍚</p>
+    </div>
   </div>
 
   <!-- JS ライブラリ -->
@@ -117,6 +130,20 @@
     let userMarker = null;
     let userLatLng = null;
     let likeCounts = {};
+    let isExpanded = false;
+
+    // スマホ用ボトムシートの高さ切替
+    function toggleSheetSize() {
+      const sheet = document.getElementById('bottomSheet');
+      if (isExpanded) {
+        sheet.style.height = '45vh';
+        isExpanded = false;
+      } else {
+        sheet.style.height = '85vh';
+        isExpanded = true;
+      }
+      setTimeout(() => { myMap.invalidateSize(); }, 300);
+    }
 
     function getMyLikes() {
       return JSON.parse(localStorage.getItem('my_liked_spots') || '{}');
@@ -129,7 +156,6 @@
       localStorage.setItem('my_liked_spots', JSON.stringify(likes));
     }
 
-    // リアルタイムいいねトグル処理
     function toggleLike(spotName) {
       const myLikes = getMyLikes();
       const currentlyLiked = !!myLikes[spotName];
@@ -159,7 +185,6 @@
       return '#3B82F6';
     }
 
-    // 距離計算（メートル / キロメートル）
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371;
       const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -183,7 +208,6 @@
             const name = row['name'] || row['名称'] || row['名前'] || '';
             if (!name) return null;
 
-            // instaKeyword の表記ブレ（instaKetword 等）にも自動対応！
             const kw = row['instaKeyword'] || row['instaKetword'] || row['ハッシュタグ'] || name;
             
             let img = row['image'] || row['image_url'] || row['画像'] || '';
@@ -218,13 +242,11 @@
             };
           }).filter(function(s) { return s !== null; });
 
-          // スプレッドシートのデータを先に即時表示！
           drawMarkers(spotsData);
         } catch (err) {
           console.error("CSV Parse Error:", err);
         }
 
-        // Firebase同期（エラーが起きてもマップ表示を邪魔しない）
         if (db) {
           try {
             db.collection('likes').onSnapshot(snapshot => {
@@ -266,39 +288,37 @@
 
         const popupContent = `
           <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
-            <div class="relative h-36 w-full bg-amber-100">
+            <div class="relative h-32 w-full bg-amber-100">
               <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
-              <span class="absolute top-2 left-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white shadow-md" style="background-color:${color}">${s.category}</span>
+              <span class="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full text-white shadow-md" style="background-color:${color}">${s.category}</span>
               
-              <!-- リアルタイムいいねボタン -->
               <button onclick="toggleLike('${s.name}')" 
-                      class="absolute bottom-2 right-2 px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-1 transition ${isLiked ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'}">
+                      class="absolute bottom-2 right-2 px-2.5 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-1 transition ${isLiked ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'}">
                 <i class="fa-solid fa-heart ${isLiked ? 'text-white' : 'text-red-500'}"></i> ${count}
               </button>
             </div>
             
-            <div class="p-3.5">
+            <div class="p-3">
               <h3 class="font-extrabold text-gray-900 text-sm leading-tight">${s.name}</h3>
               ${distText ? `<p class="text-[10px] text-orange-600 font-bold mt-0.5">${distText}</p>` : ''}
               
-              <div class="bg-amber-50/80 p-2 rounded-xl mt-2 border border-amber-100/60">
+              <div class="bg-amber-50/80 p-2 rounded-xl mt-1.5 border border-amber-100/60">
                 <p class="text-xs text-gray-700 leading-snug font-medium">💬 "${s.desc}"</p>
               </div>
 
-              <!-- アクションボタン -->
-              <div class="space-y-1.5 mt-3">
-                <a href="${s.postUrl}" target="_blank" class="w-full py-1.5 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 shadow hover:opacity-90 transition">
-                  <i class="fa-brands fa-instagram text-sm"></i> 📱 @onakaguguchan の投稿を見る
+              <div class="space-y-1.5 mt-2.5">
+                <a href="${s.postUrl}" target="_blank" class="w-full py-1.5 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[10px] font-bold rounded-xl flex items-center justify-center gap-1 shadow hover:opacity-90 transition">
+                  <i class="fa-brands fa-instagram text-xs"></i> 📱 @onakaguguchan の投稿を見る
                 </a>
                 
-                <div class="grid grid-cols-2 gap-1.5">
+                <div class="grid grid-cols-2 gap-1">
                   ${s.instaKw ? `
-                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1.5 px-2 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 shadow hover:opacity-90 transition">
-                      <i class="fa-solid fa-hashtag text-xs"></i> #${s.instaKw}
+                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1 px-1.5 text-white text-[9px] font-bold rounded-lg flex items-center justify-center gap-0.5 shadow hover:opacity-90 transition">
+                      <i class="fa-solid fa-hashtag text-[10px]"></i> #${s.instaKw}
                     </a>
                   ` : ''}
-                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1.5 px-2 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 shadow hover:bg-emerald-700 transition">
-                    <i class="fa-solid fa-map-location-dot text-xs"></i> Googleマップ
+                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1 px-1.5 text-white text-[9px] font-bold rounded-lg flex items-center justify-center gap-0.5 shadow hover:bg-emerald-700 transition">
+                    <i class="fa-solid fa-map-location-dot text-[10px]"></i> Map
                   </a>
                 </div>
               </div>
@@ -307,10 +327,10 @@
         `;
 
         const marker = L.circleMarker([s.lat, s.lng], {
-          radius: 10,
+          radius: 9,
           fillColor: color,
           color: '#ffffff',
-          weight: 2.5,
+          weight: 2,
           opacity: 1,
           fillOpacity: 0.95
         }).bindPopup(popupContent);
@@ -318,19 +338,19 @@
         markerGroup.addLayer(marker);
 
         const card = document.createElement('div');
-        card.className = 'bg-white p-3 border border-amber-100 rounded-2xl hover:shadow-lg transition cursor-pointer flex gap-3 items-center group';
+        card.className = 'bg-white p-2.5 border border-amber-100 rounded-2xl hover:shadow-md transition cursor-pointer flex gap-2.5 items-center group';
         card.innerHTML = `
-          <img src="${s.imgUrl}" loading="lazy" class="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-amber-50 border border-amber-100 group-hover:scale-105 transition" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+          <img src="${s.imgUrl}" loading="lazy" class="w-14 h-14 rounded-xl object-cover flex-shrink-0 bg-amber-50 border border-amber-100 group-hover:scale-105 transition" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-start gap-1">
               <h4 class="font-bold text-gray-800 text-xs truncate group-hover:text-orange-600 transition">${s.name}</h4>
-              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded text-white whitespace-nowrap" style="background-color:${color}">${s.category}</span>
+              <span class="text-[8px] font-bold px-1.5 py-0.5 rounded text-white whitespace-nowrap" style="background-color:${color}">${s.category}</span>
             </div>
-            <p class="text-[11px] text-gray-500 truncate mt-0.5">${s.desc}</p>
+            <p class="text-[10px] text-gray-500 truncate mt-0.5">${s.desc}</p>
             <div class="flex items-center justify-between mt-1">
-              ${distText ? `<span class="text-[10px] font-bold text-orange-600">${distText}</span>` : '<span></span>'}
-              <span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-red-100">
-                <i class="fa-solid fa-heart text-[9px]"></i> ${count}
+              ${distText ? `<span class="text-[9px] font-bold text-orange-600">${distText}</span>` : '<span></span>'}
+              <span class="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 border border-red-100">
+                <i class="fa-solid fa-heart text-[8px]"></i> ${count}
               </span>
             </div>
           </div>
@@ -339,6 +359,10 @@
         card.onclick = function() {
           myMap.flyTo([s.lat, s.lng], 15);
           marker.openPopup();
+          // スマホの場合はタップ時に一度マップが見やすいようにシートを下げる
+          if (window.innerWidth < 768 && isExpanded) {
+            toggleSheetSize();
+          }
         };
 
         listEl.appendChild(card);
