@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>食いしん坊大学生の富山たべマップ 😋</title>
+  <title>富山大生の腹ペコ食いしん坊マップ 😋</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -150,4 +150,66 @@
       drawMarkers(spotsData);
     }
 
-    function getCategoryColor(cat
+    function getCategoryColor(cat) {
+      if (!cat) return '#F97316';
+      if (cat.includes('がっつり') || cat.includes('ラーメン') || cat.includes('肉')) return '#EF4444';
+      if (cat.includes('カフェ') || cat.includes('スイーツ')) return '#F59E0B';
+      if (cat.includes('観光') || cat.includes('ドライブ') || cat.includes('映え')) return '#8B5CF6';
+      if (cat.includes('金欠') || cat.includes('コスパ')) return '#10B981';
+      return '#3B82F6';
+    }
+
+    // 距離計算（メートル / キロメートル）
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const d = R * c;
+      if (d < 1) return `${Math.round(d * 1000)}m`;
+      return `${d.toFixed(1)}km`;
+    }
+
+    Papa.parse(csvUrl, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(res) {
+        try {
+          spotsData = res.data.map(function(row) {
+            const name = row['name'] || row['名称'] || row['名前'] || '';
+            if (!name) return null;
+
+            // instaKeyword の表記ブレ（instaKetword 等）にも自動対応！
+            const kw = row['instaKeyword'] || row['instaKetword'] || row['ハッシュタグ'] || name;
+            
+            let img = row['image'] || row['image_url'] || row['画像'] || '';
+            if (!img) {
+              img = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop';
+            }
+
+            let gmap = row['googleMap'] || row['google_map'] || row['Googleマップ'] || '';
+            if (!gmap) {
+              gmap = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' 富山')}`;
+            }
+
+            let postUrl = row['postUrl'] || row['postURL'] || row['投稿URL'] || row['link'] || 'https://www.instagram.com/onakaguguchan/';
+
+            const rawLat = String(row['lat'] || row['緯度'] || '').replace(/[^\d.]/g, '');
+            const rawLng = String(row['lng'] || row['経度'] || '').replace(/[^\d.]/g, '');
+            const lat = parseFloat(rawLat);
+            const lng = parseFloat(rawLng);
+
+            if (isNaN(lat) || isNaN(lng)) return null;
+
+            return {
+              name: name,
+              desc: row['description'] || row['詳細'] || row['説明'] || 'おいしい噂を聞きつけて調査中！',
+              category: row['category'] || row['カテゴリ'] || 'グルメ',
+              instaKw: String(kw).trim(),
+              gmapUrl: gmap,
+              postUrl: postUrl,
+              imgUrl: img,
