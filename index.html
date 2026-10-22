@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>食いしん坊大学生の富山食べマップ 😋</title>
+  <title>食いしん坊大学生の富山たべマップ 😋</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- Firebase SDKs (v9 compatibility mode) -->
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
@@ -96,8 +96,13 @@
       appId: "1:502642575813:web:c7e9fa0050e074d3c6e3ac"
     };
     
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    let db = null;
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+    } catch(e) {
+      console.log("Firebase init skipped:", e);
+    }
 
     const myMap = L.map('map').setView([36.6953, 137.2113], 11);
 
@@ -107,4 +112,42 @@
 
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
 
-    let
+    let spotsData = [];
+    let markerGroup = L.layerGroup().addTo(myMap);
+    let userMarker = null;
+    let userLatLng = null;
+    let likeCounts = {};
+
+    function getMyLikes() {
+      return JSON.parse(localStorage.getItem('my_liked_spots') || '{}');
+    }
+
+    function setMyLike(name, isLiked) {
+      const likes = getMyLikes();
+      if (isLiked) likes[name] = true;
+      else delete likes[name];
+      localStorage.setItem('my_liked_spots', JSON.stringify(likes));
+    }
+
+    // リアルタイムいいねトグル処理
+    function toggleLike(spotName) {
+      const myLikes = getMyLikes();
+      const currentlyLiked = !!myLikes[spotName];
+      const newLiked = !currentlyLiked;
+
+      setMyLike(spotName, newLiked);
+
+      const currentCount = likeCounts[spotName] || 0;
+      likeCounts[spotName] = Math.max(0, currentCount + (newLiked ? 1 : -1));
+
+      if (db) {
+        const docRef = db.collection('likes').doc(encodeURIComponent(spotName));
+        docRef.set({
+          count: firebase.firestore.FieldValue.increment(newLiked ? 1 : -1)
+        }, { merge: true }).catch(err => console.log("Like sync error:", err));
+      }
+
+      drawMarkers(spotsData);
+    }
+
+    function getCategoryColor(cat
