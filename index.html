@@ -3,11 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>富山大生の腹ペコ食いしん坊マップ 😋</title>
+  <title>食いしん坊大学生の富山食べマップ 😋</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Firebase SDKs (v9 compatibility mode) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
   <style>
     #map { height: 100vh; width: 100%; z-index: 0; }
@@ -39,7 +43,7 @@
       <h1 class="text-base font-extrabold flex items-center gap-2">
         <i class="fa-solid fa-utensils text-yellow-200"></i> 富山大生の腹ペコ食いしん坊マップ 😋
       </h1>
-      <p class="text-[11px] text-orange-100 mt-1 font-medium">行きたいお店にハート❤️を押してお気に入り保存！</p>
+      <p class="text-[11px] text-orange-100 mt-1 font-medium">推し店に「いいね❤️」して応援しよう！</p>
     </div>
 
     <!-- 検索 & フィルター -->
@@ -55,6 +59,7 @@
         <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-bold px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
         <button onclick="filterCategory('がっつり飯')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">がっつり飯 🍜</button>
         <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">カフェ ☕️</button>
+        <button onclick="filterCategory('観光')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">観光・ドライブ 🚗</button>
         <button onclick="filterCategory('金欠')" class="cat-btn bg-white text-gray-700 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">金欠の味方 💸</button>
       </div>
     </div>
@@ -81,6 +86,19 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <script>
+    // --- Firebase 初期設定 ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCokjVZVcnwDt1inWLUCfoDnPzQ7M5Y-G4",
+      authDomain: "toyamap-dcb68.firebaseapp.com",
+      projectId: "toyamap-dcb68",
+      storageBucket: "toyamap-dcb68.firebasestorage.app",
+      messagingSenderId: "502642575813",
+      appId: "1:502642575813:web:c7e9fa0050e074d3c6e3ac"
+    };
+    
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
     const myMap = L.map('map').setView([36.6953, 137.2113], 11);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -89,209 +107,4 @@
 
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
 
-    let spotsData = [];
-    let markerGroup = L.layerGroup().addTo(myMap);
-    let userMarker = null;
-
-    // ローカル（スマホ内）にいいねを保存
-    function getMyLikes() {
-      return JSON.parse(localStorage.getItem('my_liked_spots') || '{}');
-    }
-
-    function toggleLike(spotName) {
-      const likes = getMyLikes();
-      if (likes[spotName]) {
-        delete likes[spotName];
-      } else {
-        likes[spotName] = true;
-      }
-      localStorage.setItem('my_liked_spots', JSON.stringify(likes));
-      drawMarkers(spotsData);
-    }
-
-    function getCategoryColor(cat) {
-      if (!cat) return '#F97316';
-      if (cat.includes('がっつり') || cat.includes('ラーメン') || cat.includes('肉')) return '#EF4444';
-      if (cat.includes('カフェ') || cat.includes('スイーツ')) return '#F59E0B';
-      if (cat.includes('金欠') || cat.includes('コスパ')) return '#10B981';
-      return '#3B82F6';
-    }
-
-    // スプレッドシートを爆速読み込み
-    Papa.parse(csvUrl, {
-      download: true,
-      header: true,
-      complete: function(res) {
-        spotsData = res.data.map(function(row) {
-          const kw = row['instaKetword'] || row['instaKeyword'] || row['ハッシュタグ'] || row['name'] || row['名称'] || '';
-          const name = row['name'] || row['名称'] || row['名前'] || 'うま飯スポット';
-          
-          let img = row['image'] || row['image_url'] || row['画像'] || '';
-          if (!img) {
-            img = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop';
-          }
-
-          let gmap = row['googleMap'] || row['google_map'] || row['Googleマップ'] || '';
-          if (!gmap) {
-            gmap = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' 富山')}`;
-          }
-
-          let postUrl = row['postUrl'] || row['投稿URL'] || row['link'] || row['リンク'] || 'https://www.instagram.com/onakaguguchan/';
-
-          return {
-            name: name,
-            desc: row['description'] || row['詳細'] || row['説明'] || 'おいしい噂を聞きつけて調査中！',
-            category: row['category'] || row['カテゴリ'] || 'グルメ',
-            instaKw: kw.trim(),
-            gmapUrl: gmap,
-            postUrl: postUrl,
-            imgUrl: img,
-            lat: parseFloat(row['lat'] || row['緯度']),
-            lng: parseFloat(row['lng'] || row['経度'])
-          };
-        }).filter(function(s) { return !isNaN(s.lat) && !isNaN(s.lng); });
-
-        drawMarkers(spotsData);
-      }
-    });
-
-    function drawMarkers(data) {
-      markerGroup.clearLayers();
-      const listEl = document.getElementById('spotList');
-      listEl.innerHTML = '';
-
-      if (data.length === 0) {
-        listEl.innerHTML = '<p class="text-gray-400 text-center py-4 text-xs">見つからなかった！スプレッドシートに追加してみてね！</p>';
-        return;
-      }
-
-      const myLikes = getMyLikes();
-
-      data.forEach(function(s) {
-        const color = getCategoryColor(s.category);
-        const encodedKw = encodeURIComponent(s.instaKw);
-        const instaSearchUrl = `https://www.instagram.com/explore/tags/${encodedKw}/`;
-        const isLiked = !!myLikes[s.name];
-
-        const popupContent = `
-          <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
-            <div class="relative h-36 w-full bg-amber-100">
-              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
-              <span class="absolute top-2 left-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white shadow-md" style="background-color:${color}">${s.category}</span>
-              
-              <button onclick="toggleLike('${s.name}')" 
-                      class="absolute bottom-2 right-2 px-3 py-1.5 rounded-full text-xs font-bold shadow-md flex items-center gap-1 transition ${isLiked ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'}">
-                <i class="fa-solid fa-heart ${isLiked ? 'text-white' : 'text-red-500'}"></i> ${isLiked ? '保存済み' : '行きたい！'}
-              </button>
-            </div>
-            
-            <div class="p-3.5">
-              <h3 class="font-extrabold text-gray-900 text-sm leading-tight">${s.name}</h3>
-              
-              <div class="bg-amber-50/80 p-2 rounded-xl mt-2 border border-amber-100/60">
-                <p class="text-xs text-gray-700 leading-snug font-medium">💬 "${s.desc}"</p>
-              </div>
-
-              <div class="space-y-1.5 mt-3">
-                <a href="${s.postUrl}" target="_blank" class="w-full py-1.5 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 shadow hover:opacity-90 transition">
-                  <i class="fa-brands fa-instagram text-sm"></i> 📱 @onakaguguchan の投稿を見る
-                </a>
-                
-                <div class="grid grid-cols-2 gap-1.5">
-                  ${s.instaKw ? `
-                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1.5 px-2 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 shadow hover:opacity-90 transition">
-                      <i class="fa-solid fa-hashtag text-xs"></i> #${s.instaKw}
-                    </a>
-                  ` : ''}
-                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1.5 px-2 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 shadow hover:bg-emerald-700 transition">
-                    <i class="fa-solid fa-map-location-dot text-xs"></i> Googleマップ
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-
-        const marker = L.circleMarker([s.lat, s.lng], {
-          radius: 10,
-          fillColor: color,
-          color: '#ffffff',
-          weight: 2.5,
-          opacity: 1,
-          fillOpacity: 0.95
-        }).bindPopup(popupContent);
-
-        markerGroup.addLayer(marker);
-
-        const card = document.createElement('div');
-        card.className = 'bg-white p-3 border border-amber-100 rounded-2xl hover:shadow-lg transition cursor-pointer flex gap-3 items-center group';
-        card.innerHTML = `
-          <img src="${s.imgUrl}" loading="lazy" class="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-amber-50 border border-amber-100 group-hover:scale-105 transition" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
-          <div class="flex-1 min-w-0">
-            <div class="flex justify-between items-start gap-1">
-              <h4 class="font-bold text-gray-800 text-xs truncate group-hover:text-orange-600 transition">${s.name}</h4>
-              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded text-white whitespace-nowrap" style="background-color:${color}">${s.category}</span>
-            </div>
-            <p class="text-[11px] text-gray-500 truncate mt-0.5">${s.desc}</p>
-            ${isLiked ? `
-              <span class="inline-flex items-center gap-1 text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full mt-1 border border-red-100">
-                <i class="fa-solid fa-heart"></i> お気に入り
-              </span>
-            ` : ''}
-          </div>
-        `;
-
-        card.onclick = function() {
-          myMap.flyTo([s.lat, s.lng], 15);
-          marker.openPopup();
-        };
-
-        listEl.appendChild(card);
-      });
-    }
-
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-      const val = e.target.value.toLowerCase();
-      const filtered = spotsData.filter(function(s) {
-        return s.name.toLowerCase().includes(val) || s.desc.toLowerCase().includes(val) || s.instaKw.toLowerCase().includes(val) || s.category.toLowerCase().includes(val);
-      });
-      drawMarkers(filtered);
-    });
-
-    function filterCategory(cat) {
-      document.querySelectorAll('#categoryFilter button').forEach(b => {
-        b.classList.remove('bg-orange-500', 'text-white');
-        b.classList.add('bg-white', 'text-gray-700');
-      });
-      event.target.classList.remove('bg-white', 'text-gray-700');
-      event.target.classList.add('bg-orange-500', 'text-white');
-
-      if (cat === 'all') {
-        drawMarkers(spotsData);
-      } else {
-        const filtered = spotsData.filter(s => s.category.includes(cat) || s.desc.includes(cat));
-        drawMarkers(filtered);
-      }
-    }
-
-    function getLocation() {
-      myMap.locate({setView: true, maxZoom: 15});
-    }
-
-    myMap.on('locationfound', function(e) {
-      if (userMarker) myMap.removeLayer(userMarker);
-      userMarker = L.circleMarker(e.latlng, {
-        radius: 9,
-        fillColor: '#FF3B30',
-        color: '#ffffff',
-        weight: 3,
-        fillOpacity: 1
-      }).addTo(myMap).bindPopup('<b>📍 今ここにいるよ！お腹すいた〜！</b>').openPopup();
-    });
-
-    myMap.on('locationerror', function() {
-      alert('現在地を取得できませんでした。スマホの設定で位置情報を許可してね！');
-    });
-  </script>
-</body>
-</html>
+    let
