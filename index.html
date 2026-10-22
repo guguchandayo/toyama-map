@@ -21,17 +21,22 @@
     }
     #map { height: 100%; width: 100%; z-index: 0; }
     
-    /* スマホ向けに吹き出し（ポップアップ）を超コンパクトに */
+    /* ポップアップの基本スタイリング */
     .leaflet-popup-content-wrapper {
-      border-radius: 18px;
+      border-radius: 20px;
       padding: 0px;
       overflow: hidden;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
-      border: 2px solid #ffedd5;
+      box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.3);
+      border: 3px solid #ffedd5;
     }
     .leaflet-popup-content {
       margin: 0 !important;
-      width: 260px !important;
+      width: 275px !important;
+    }
+
+    /* Leaflet標準のバツボタンを隠し、自作の大きな赤丸バツボタンを使用 */
+    .leaflet-container a.leaflet-popup-close-button {
+      display: none !important;
     }
 
     .insta-btn {
@@ -47,11 +52,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
       color: white;
-      font-size: 18px;
+      font-size: 20px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
       border: 2.5px solid #ffffff;
       transition: transform 0.2s ease;
@@ -206,6 +211,23 @@
       setTimeout(() => { myMap.invalidateSize(); }, 300);
     });
 
+    // 写真トグル機能
+    function togglePopupImage(id) {
+      const imgContainer = document.getElementById(`popup-img-container-${id}`);
+      const btnText = document.getElementById(`popup-img-btn-text-${id}`);
+      if (imgContainer.classList.contains('hidden')) {
+        imgContainer.classList.remove('hidden');
+        btnText.innerText = '🖼️ 写真を隠す';
+      } else {
+        imgContainer.classList.add('hidden');
+        btnText.innerText = '🖼️ 写真を見る';
+      }
+    }
+
+    function closeMyPopup() {
+      myMap.closePopup();
+    }
+
     function getInstaThumbnail(url) {
       if (!url) return '';
       if (url.match(/\.(jpeg|jpg|gif|png|webp)/i)) return url;
@@ -275,7 +297,7 @@
       skipEmptyLines: true,
       complete: function(res) {
         try {
-          spotsData = res.data.map(function(row) {
+          spotsData = res.data.map(function(row, idx) {
             const name = row['name'] || row['名称'] || row['名前'] || '';
             if (!name) return null;
 
@@ -302,6 +324,7 @@
             if (isNaN(lat) || isNaN(lng)) return null;
 
             return {
+              id: idx,
               name: name,
               desc: row['description'] || row['詳細'] || row['説明'] || 'おいしい噂を聞きつけて調査中！',
               category: row['category'] || row['カテゴリ'] || 'グルメ',
@@ -358,34 +381,62 @@
           distText = `📍 現在地から ${dist}`;
         }
 
-        <!-- 超コンパクト化されたポップアップデザイン -->
+        <!-- 「#みんなの投稿を見る」ボタンに統一されたポップアップ -->
         const popupContent = `
-          <div class="bg-white rounded-xl overflow-hidden shadow-sm">
-            <div class="p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 flex items-center justify-between">
-              <h3 class="font-black text-gray-900 text-xs truncate leading-tight flex-1 pr-1">${s.name}</h3>
-              <button onclick="toggleLike('${s.name}')" 
-                      class="px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm flex items-center gap-1 transition ${isLiked ? 'bg-red-500 text-white' : 'bg-white text-gray-700 border border-amber-200'}">
-                <i class="fa-solid fa-heart ${isLiked ? 'text-white' : 'text-red-500'}"></i> ${count}
-              </button>
+          <div class="bg-white rounded-2xl overflow-hidden shadow-sm relative">
+            
+            <!-- 大きな赤丸の「✖️」閉じるボタン -->
+            <button onclick="closeMyPopup()" 
+                    class="absolute top-2 right-2 z-20 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center font-black text-sm shadow-md border-2 border-white transition active:scale-90">
+              ✖
+            </button>
+
+            <!-- 写真エリア -->
+            <div id="popup-img-container-${s.id}" class="relative h-36 w-full bg-orange-100">
+              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+              <span class="absolute top-2 left-2 text-[10px] font-black px-2.5 py-0.5 rounded-full text-white shadow-md flex items-center gap-1" style="background-color:${catStyle.color}">
+                ${catStyle.emoji} ${s.category}
+              </span>
             </div>
             
-            <div class="p-2.5 space-y-1.5">
-              ${distText ? `<p class="text-[9px] text-orange-600 font-extrabold">${distText}</p>` : ''}
-              <p class="text-[11px] text-gray-700 leading-snug font-bold bg-amber-50/60 p-1.5 rounded-lg border border-amber-100/80">💬 "${s.desc}"</p>
+            <div class="p-3">
+              <div class="flex items-center justify-between pr-8">
+                <h3 class="font-black text-gray-900 text-sm leading-tight">${s.name}</h3>
+              </div>
+              
+              ${distText ? `<p class="text-[10px] text-orange-600 font-extrabold mt-0.5">${distText}</p>` : ''}
+              
+              <div class="bg-orange-50/80 p-2 rounded-xl mt-1.5 border border-orange-100">
+                <p class="text-xs text-gray-700 leading-snug font-bold">💬 "${s.desc}"</p>
+              </div>
 
-              <div class="space-y-1 pt-0.5">
-                <a href="${s.postUrl}" target="_blank" class="w-full py-1 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[10px] font-black rounded-lg flex items-center justify-center gap-1 shadow-sm hover:opacity-90">
-                  <i class="fa-brands fa-instagram text-white text-xs"></i> 投稿を見る
+              <!-- アクションボタンエリア -->
+              <div class="space-y-1.5 mt-2.5">
+                <div class="flex gap-1.5">
+                  <!-- 写真のサイズ切り替えボタン -->
+                  <button onclick="togglePopupImage(${s.id})" class="flex-1 py-1.5 px-2 bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black rounded-xl border border-amber-200 transition">
+                    <span id="popup-img-btn-text-${s.id}">🖼️ 写真を隠す</span>
+                  </button>
+
+                  <!-- いいねボタン -->
+                  <button onclick="toggleLike('${s.name}')" 
+                          class="py-1.5 px-3 rounded-xl text-[10px] font-black shadow-sm flex items-center gap-1 transition ${isLiked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800 border border-gray-200'}">
+                    <i class="fa-solid fa-heart ${isLiked ? 'text-white' : 'text-red-500'}"></i> ${count}
+                  </button>
+                </div>
+
+                <a href="${s.postUrl}" target="_blank" class="w-full py-1.5 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[11px] font-black rounded-xl flex items-center justify-center gap-1 shadow hover:opacity-90 transition">
+                  <i class="fa-brands fa-instagram text-white text-xs"></i> <span class="text-white">@onakaguguchan の投稿を見る</span>
                 </a>
                 
                 <div class="grid grid-cols-2 gap-1">
                   ${s.instaKw ? `
-                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1 px-1 text-white text-[9px] font-black rounded-md flex items-center justify-center gap-0.5 shadow-sm">
-                      <i class="fa-solid fa-hashtag text-white text-[9px]"></i> #${s.instaKw}
+                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1 px-1.5 text-white text-[9px] font-black rounded-lg flex items-center justify-center gap-0.5 shadow hover:opacity-90 transition">
+                      <i class="fa-solid fa-hashtag text-white text-[10px]"></i> <span class="text-white">みんなの投稿を見る</span>
                     </a>
                   ` : ''}
-                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1 px-1 text-white text-[9px] font-black rounded-md flex items-center justify-center gap-0.5 shadow-sm">
-                    <i class="fa-solid fa-map-location-dot text-white text-[9px]"></i> Map
+                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1 px-1.5 text-white text-[9px] font-black rounded-lg flex items-center justify-center gap-0.5 shadow hover:bg-emerald-700 transition">
+                    <i class="fa-solid fa-map-location-dot text-white text-[10px]"></i> <span class="text-white">Map</span>
                   </a>
                 </div>
               </div>
