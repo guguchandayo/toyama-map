@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>食いしん坊大学生の富山たべマップ 😋</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -17,19 +17,21 @@
   <style>
     body {
       font-family: 'M PLUS Rounded 1c', sans-serif;
+      touch-action: manipulation;
     }
     #map { height: 100%; width: 100%; z-index: 0; }
     
+    /* スマホ向けに吹き出し（ポップアップ）を超コンパクトに */
     .leaflet-popup-content-wrapper {
-      border-radius: 24px;
+      border-radius: 18px;
       padding: 0px;
       overflow: hidden;
-      box-shadow: 0 16px 32px -6px rgba(234, 88, 12, 0.25);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
       border: 2px solid #ffedd5;
     }
     .leaflet-popup-content {
       margin: 0 !important;
-      width: 285px !important;
+      width: 260px !important;
     }
 
     .insta-btn {
@@ -37,29 +39,27 @@
     }
 
     #bottomSheet {
-      transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: height 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+      will-change: height;
     }
 
     .custom-food-pin {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       color: white;
-      font-size: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      border: 3px solid #ffffff;
+      font-size: 18px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      border: 2.5px solid #ffffff;
       transition: transform 0.2s ease;
-    }
-    .custom-food-pin:hover {
-      transform: scale(1.2) rotate(8deg);
     }
 
     @keyframes pulse-bounce {
       0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.06); }
+      50% { transform: scale(1.05); }
     }
     .animate-pulse-bounce {
       animation: pulse-bounce 2s infinite;
@@ -75,53 +75,50 @@
     
     <!-- 現在地ボタン -->
     <button onclick="getLocation()" 
-            class="animate-pulse-bounce absolute top-4 right-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-extrabold py-2.5 px-4 rounded-full shadow-xl z-[1000] flex items-center gap-2 text-xs transition border-2 border-white">
-      <i class="fa-solid fa-location-dot text-yellow-300 text-sm animate-ping"></i> 今どこ？腹ペコなう！
+            class="animate-pulse-bounce absolute top-3 right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white font-black py-2 px-3.5 rounded-full shadow-lg z-[1000] flex items-center gap-1.5 text-xs border-2 border-white">
+      <i class="fa-solid fa-location-dot text-yellow-300 text-xs"></i> 現在地
     </button>
   </div>
 
   <!-- サイドバー / スマホ用可変ボトムシート -->
-  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[45vh] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0">
+  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[40vh] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0">
     
-    <!-- スマホ専用：高さ変更つまみバー -->
-    <div onclick="toggleSheetSize()" class="md:hidden w-full py-2.5 flex flex-col items-center justify-center cursor-pointer bg-amber-50/80 rounded-t-3xl border-b border-orange-100 active:bg-amber-100">
+    <!-- スマホ専用：スワイプ & タップ可能なハンガーバー -->
+    <div id="dragHeader" class="md:hidden w-full py-2 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing bg-amber-50/90 rounded-t-3xl border-b border-orange-100 select-none">
       <div class="w-12 h-1.5 bg-orange-300 rounded-full mb-1"></div>
-      <span class="text-[10px] font-black text-orange-600 tracking-wider">スワイプ / タップでリスト拡大 ↕️</span>
+      <span class="text-[10px] font-black text-orange-600 tracking-wider">上下スワイプで高さ調整 ↕️</span>
     </div>
 
     <!-- ヘッダー -->
-    <div class="px-4 py-3 md:p-4 bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-md flex items-center justify-between md:block">
+    <div class="px-3.5 py-2 md:p-4 bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-sm flex items-center justify-between md:block">
       <div>
-        <h1 class="text-sm md:text-base font-black flex items-center gap-1.5 tracking-tight drop-shadow-sm">
-          <i class="fa-solid fa-face-grin-squint text-yellow-200 text-lg"></i> 食いしん坊大学生の富山たべマップ 😋
+        <h1 class="text-xs md:text-base font-black flex items-center gap-1 tracking-tight">
+          <i class="fa-solid fa-face-grin-squint text-yellow-200 text-base"></i> 食いしん坊大学生の富山たべマップ 😋
         </h1>
-        <p class="text-[10px] md:text-[11px] text-orange-100 font-bold mt-1 hidden md:block">
-          富山大生がガチで通う神コスパ＆映えグルメまとめ！🍚✨
-        </p>
       </div>
     </div>
 
     <!-- 検索 & フィルター -->
-    <div class="p-2.5 md:p-3 border-b border-amber-100 space-y-2 bg-gradient-to-b from-amber-50/80 to-white">
+    <div class="p-2 md:p-3 border-b border-amber-100 space-y-1.5 bg-gradient-to-b from-amber-50/60 to-white">
       <div class="relative">
-        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-orange-400 text-xs"></i>
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2 text-orange-400 text-xs"></i>
         <input type="text" id="searchInput" placeholder="店名・大盛り・カフェ等で検索..." 
-               class="w-full pl-9 pr-3 py-1.5 border-2 border-orange-200 rounded-full text-xs font-bold focus:outline-none focus:border-orange-400 bg-white placeholder-amber-900/40">
+               class="w-full pl-8 pr-2.5 py-1 border-2 border-orange-200 rounded-full text-xs font-bold focus:outline-none focus:border-orange-400 bg-white">
       </div>
       
       <!-- カテゴリタグ -->
-      <div class="flex gap-1 overflow-x-auto pb-1 text-[11px] scrollbar-none" id="categoryFilter">
-        <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-black px-3 py-1 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
-        <button onclick="filterCategory('がっつり飯')" class="cat-btn bg-white text-orange-900 font-bold border-2 border-orange-100 px-3 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">がっつり飯 🍜</button>
-        <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-orange-900 font-bold border-2 border-orange-100 px-3 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">カフェ ☕️</button>
-        <button onclick="filterCategory('観光')" class="cat-btn bg-white text-orange-900 font-bold border-2 border-orange-100 px-3 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">観光・映え 🚗</button>
-        <button onclick="filterCategory('金欠')" class="cat-btn bg-white text-orange-900 font-bold border-2 border-orange-100 px-3 py-1 rounded-full whitespace-nowrap hover:bg-orange-50">金欠の味方 💸</button>
+      <div class="flex gap-1 overflow-x-auto pb-0.5 text-[10px]" id="categoryFilter">
+        <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-black px-2.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
+        <button onclick="filterCategory('がっつり飯')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">がっつり飯 🍜</button>
+        <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">カフェ ☕️</button>
+        <button onclick="filterCategory('観光')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">観光・映え 🚗</button>
+        <button onclick="filterCategory('金欠')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">金欠の味方 💸</button>
       </div>
     </div>
 
     <!-- スポットリスト -->
-    <div id="spotList" class="flex-1 overflow-y-auto p-2.5 md:p-3 space-y-2.5 bg-amber-50/20">
-      <p class="text-orange-800/60 text-center py-6 text-xs font-extrabold animate-pulse">うまい飯データを爆速読み込み中...🍚</p>
+    <div id="spotList" class="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 bg-amber-50/10">
+      <p class="text-orange-800/60 text-center py-4 text-xs font-black animate-pulse">うまい飯データを読み込み中...🍚</p>
     </div>
   </div>
 
@@ -144,11 +141,9 @@
     try {
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
-    } catch(e) {
-      console.log("Firebase init skipped:", e);
-    }
+    } catch(e) {}
 
-    const myMap = L.map('map').setView([36.6953, 137.2113], 11);
+    const myMap = L.map('map', { zoomControl: false }).setView([36.6953, 137.2113], 11);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap'
@@ -161,32 +156,64 @@
     let userMarker = null;
     let userLatLng = null;
     let likeCounts = {};
+
+    // --- 本物のスワイプジェスチャー実装 ---
+    const sheet = document.getElementById('bottomSheet');
+    const dragHeader = document.getElementById('dragHeader');
+    let startY = 0;
+    let startHeight = 0;
     let isExpanded = false;
 
-    // InstagramのURLからサムネイル画像を自動生成する関数
+    dragHeader.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+      startHeight = sheet.offsetHeight;
+      sheet.style.transition = 'none';
+    }, { passive: true });
+
+    dragHeader.addEventListener('touchmove', (e) => {
+      const currentY = e.touches[0].clientY;
+      const deltaY = startY - currentY;
+      let newHeight = startHeight + deltaY;
+      const vhHeight = (newHeight / window.innerHeight) * 100;
+      
+      if (vhHeight >= 20 && vhHeight <= 85) {
+        sheet.style.height = `${vhHeight}vh`;
+      }
+    }, { passive: true });
+
+    dragHeader.addEventListener('touchend', (e) => {
+      sheet.style.transition = 'height 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
+      const currentVh = (sheet.offsetHeight / window.innerHeight) * 100;
+      if (currentVh > 55) {
+        sheet.style.height = '80vh';
+        isExpanded = true;
+      } else {
+        sheet.style.height = '40vh';
+        isExpanded = false;
+      }
+      setTimeout(() => { myMap.invalidateSize(); }, 300);
+    });
+
+    dragHeader.addEventListener('click', () => {
+      sheet.style.transition = 'height 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
+      if (isExpanded) {
+        sheet.style.height = '40vh';
+        isExpanded = false;
+      } else {
+        sheet.style.height = '80vh';
+        isExpanded = true;
+      }
+      setTimeout(() => { myMap.invalidateSize(); }, 300);
+    });
+
     function getInstaThumbnail(url) {
       if (!url) return '';
-      // 直リンク画像ならそのまま返す
       if (url.match(/\.(jpeg|jpg|gif|png|webp)/i)) return url;
-      
-      // Instagramの投稿/リールURLの場合、メディア埋め込み画像に自動変換
       if (url.includes('instagram.com/p/') || url.includes('instagram.com/reel/')) {
         const cleanUrl = url.split('?')[0].replace(/\/$/, '');
         return `${cleanUrl}/media/?size=l`;
       }
       return url;
-    }
-
-    function toggleSheetSize() {
-      const sheet = document.getElementById('bottomSheet');
-      if (isExpanded) {
-        sheet.style.height = '45vh';
-        isExpanded = false;
-      } else {
-        sheet.style.height = '85vh';
-        isExpanded = true;
-      }
-      setTimeout(() => { myMap.invalidateSize(); }, 300);
     }
 
     function getMyLikes() {
@@ -222,18 +249,10 @@
 
     function getCategoryStyle(cat) {
       if (!cat) return { color: '#F97316', emoji: '😋' };
-      if (cat.includes('がっつり') || cat.includes('ラーメン') || cat.includes('肉')) {
-        return { color: '#EF4444', emoji: '🍜' };
-      }
-      if (cat.includes('カフェ') || cat.includes('スイーツ')) {
-        return { color: '#F59E0B', emoji: '☕️' };
-      }
-      if (cat.includes('観光') || cat.includes('ドライブ') || cat.includes('映え')) {
-        return { color: '#8B5CF6', emoji: '🚗' };
-      }
-      if (cat.includes('金欠') || cat.includes('コスパ')) {
-        return { color: '#10B981', emoji: '💸' };
-      }
+      if (cat.includes('がっつり') || cat.includes('ラーメン') || cat.includes('肉')) return { color: '#EF4444', emoji: '🍜' };
+      if (cat.includes('カフェ') || cat.includes('スイーツ')) return { color: '#F59E0B', emoji: '☕️' };
+      if (cat.includes('観光') || cat.includes('ドライブ') || cat.includes('映え')) return { color: '#8B5CF6', emoji: '🚗' };
+      if (cat.includes('金欠') || cat.includes('コスパ')) return { color: '#10B981', emoji: '💸' };
       return { color: '#3B82F6', emoji: '🍴' };
     }
 
@@ -263,7 +282,6 @@
             const kw = row['instaKeyword'] || row['instaKetword'] || row['ハッシュタグ'] || name;
             let postUrl = row['postUrl'] || row['postURL'] || row['投稿URL'] || row['link'] || 'https://www.instagram.com/onakaguguchan/';
 
-            // ① image列があればそこから画像を取得、無ければ postUrl から自動生成！
             let rawImg = row['image'] || row['image_url'] || row['画像'] || postUrl;
             let img = getInstaThumbnail(rawImg);
 
@@ -321,7 +339,7 @@
       listEl.innerHTML = '';
 
       if (data.length === 0) {
-        listEl.innerHTML = '<p class="text-orange-800/60 font-bold text-center py-6 text-xs">お店が見つからなかった！スプレッドシートに追加してね！</p>';
+        listEl.innerHTML = '<p class="text-orange-800/60 font-bold text-center py-4 text-xs">お店が見つからなかった！</p>';
         return;
       }
 
@@ -340,43 +358,34 @@
           distText = `📍 現在地から ${dist}`;
         }
 
+        <!-- 超コンパクト化されたポップアップデザイン -->
         const popupContent = `
-          <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
-            <div class="relative h-36 w-full bg-orange-100">
-              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
-              <span class="absolute top-2 left-2 text-[10px] font-black px-2.5 py-0.5 rounded-full text-white shadow-md flex items-center gap-1" style="background-color:${catStyle.color}">
-                ${catStyle.emoji} ${s.category}
-              </span>
-              
+          <div class="bg-white rounded-xl overflow-hidden shadow-sm">
+            <div class="p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 flex items-center justify-between">
+              <h3 class="font-black text-gray-900 text-xs truncate leading-tight flex-1 pr-1">${s.name}</h3>
               <button onclick="toggleLike('${s.name}')" 
-                      class="absolute bottom-2 right-2 px-3 py-1 rounded-full text-xs font-black shadow-lg flex items-center gap-1 transition ${isLiked ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-800 hover:bg-white'}">
+                      class="px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm flex items-center gap-1 transition ${isLiked ? 'bg-red-500 text-white' : 'bg-white text-gray-700 border border-amber-200'}">
                 <i class="fa-solid fa-heart ${isLiked ? 'text-white' : 'text-red-500'}"></i> ${count}
               </button>
             </div>
             
-            <div class="p-3.5">
-              <h3 class="font-black text-gray-900 text-sm leading-tight flex items-center gap-1">
-                ${s.name}
-              </h3>
-              ${distText ? `<p class="text-[10px] text-orange-600 font-extrabold mt-0.5">${distText}</p>` : ''}
-              
-              <div class="bg-orange-50/80 p-2.5 rounded-xl mt-2 border border-orange-100">
-                <p class="text-xs text-gray-700 leading-snug font-bold">💬 "${s.desc}"</p>
-              </div>
+            <div class="p-2.5 space-y-1.5">
+              ${distText ? `<p class="text-[9px] text-orange-600 font-extrabold">${distText}</p>` : ''}
+              <p class="text-[11px] text-gray-700 leading-snug font-bold bg-amber-50/60 p-1.5 rounded-lg border border-amber-100/80">💬 "${s.desc}"</p>
 
-              <div class="space-y-1.5 mt-3">
-                <a href="${s.postUrl}" target="_blank" class="w-full py-2 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[11px] font-black rounded-xl flex items-center justify-center gap-1.5 shadow-md hover:opacity-90 transition">
-                  <i class="fa-brands fa-instagram text-white text-sm"></i> <span class="text-white">@onakaguguchan の投稿を見る</span>
+              <div class="space-y-1 pt-0.5">
+                <a href="${s.postUrl}" target="_blank" class="w-full py-1 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[10px] font-black rounded-lg flex items-center justify-center gap-1 shadow-sm hover:opacity-90">
+                  <i class="fa-brands fa-instagram text-white text-xs"></i> 投稿を見る
                 </a>
                 
-                <div class="grid grid-cols-2 gap-1.5">
+                <div class="grid grid-cols-2 gap-1">
                   ${s.instaKw ? `
-                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1.5 px-2 text-white text-[10px] font-black rounded-lg flex items-center justify-center gap-1 shadow hover:opacity-90 transition">
-                      <i class="fa-solid fa-hashtag text-white text-xs"></i> <span class="text-white">#${s.instaKw}</span>
+                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1 px-1 text-white text-[9px] font-black rounded-md flex items-center justify-center gap-0.5 shadow-sm">
+                      <i class="fa-solid fa-hashtag text-white text-[9px]"></i> #${s.instaKw}
                     </a>
                   ` : ''}
-                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1.5 px-2 text-white text-[10px] font-black rounded-lg flex items-center justify-center gap-1 shadow hover:bg-emerald-700 transition">
-                    <i class="fa-solid fa-map-location-dot text-white text-xs"></i> <span class="text-white">Map</span>
+                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1 px-1 text-white text-[9px] font-black rounded-md flex items-center justify-center gap-0.5 shadow-sm">
+                    <i class="fa-solid fa-map-location-dot text-white text-[9px]"></i> Map
                   </a>
                 </div>
               </div>
@@ -387,33 +396,29 @@
         const foodPinIcon = L.divIcon({
           className: 'custom-pin-wrapper',
           html: `<div class="custom-food-pin" style="background-color: ${catStyle.color}">${catStyle.emoji}</div>`,
-          iconSize: [38, 38],
-          iconAnchor: [19, 19],
-          popupAnchor: [0, -18]
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+          popupAnchor: [0, -16]
         });
 
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent);
         markerGroup.addLayer(marker);
 
         const card = document.createElement('div');
-        card.className = 'bg-white p-3 border-2 border-orange-100 rounded-2xl hover:border-orange-300 hover:shadow-md transition cursor-pointer flex gap-3 items-center group relative overflow-hidden';
+        card.className = 'bg-white p-2.5 border-2 border-orange-100 rounded-2xl hover:border-orange-300 hover:shadow-md transition cursor-pointer flex gap-2.5 items-center group relative overflow-hidden';
         
         card.innerHTML = `
-          <img src="${s.imgUrl}" loading="lazy" class="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-amber-50 border border-amber-100 group-hover:scale-105 transition" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+          <img src="${s.imgUrl}" loading="lazy" class="w-14 h-14 rounded-xl object-cover flex-shrink-0 bg-amber-50 border border-amber-100" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-start gap-1">
-              <h4 class="font-black text-gray-800 text-xs truncate group-hover:text-orange-600 transition flex items-center gap-1">
-                ${s.name}
-              </h4>
-              <span class="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white whitespace-nowrap shadow-sm" style="background-color:${catStyle.color}">
-                ${catStyle.emoji} ${s.category}
-              </span>
+              <h4 class="font-black text-gray-800 text-xs truncate flex items-center gap-1">${s.name}</h4>
+              <span class="text-[8px] font-black px-1.5 py-0.5 rounded-full text-white whitespace-nowrap" style="background-color:${catStyle.color}">${catStyle.emoji} ${s.category}</span>
             </div>
-            <p class="text-[11px] text-gray-500 font-bold truncate mt-0.5">${s.desc}</p>
+            <p class="text-[10px] text-gray-500 font-bold truncate mt-0.5">${s.desc}</p>
             <div class="flex items-center justify-between mt-1">
-              ${distText ? `<span class="text-[9px] font-black text-orange-600">${distText}</span>` : '<span></span>'}
-              <span class="text-[10px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-red-100">
-                <i class="fa-solid fa-heart text-[9px]"></i> ${count}
+              ${distText ? `<span class="text-[8px] font-black text-orange-600">${distText}</span>` : '<span></span>'}
+              <span class="text-[9px] font-black text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 border border-red-100">
+                <i class="fa-solid fa-heart text-[8px]"></i> ${count}
               </span>
             </div>
           </div>
@@ -423,7 +428,9 @@
           myMap.flyTo([s.lat, s.lng], 15);
           marker.openPopup();
           if (window.innerWidth < 768 && isExpanded) {
-            toggleSheetSize();
+            sheet.style.height = '40vh';
+            isExpanded = false;
+            setTimeout(() => { myMap.invalidateSize(); }, 300);
           }
         };
 
@@ -464,18 +471,18 @@
       if (userMarker) myMap.removeLayer(userMarker);
       
       const userIcon = L.divIcon({
-        html: `<div class="w-8 h-8 rounded-full bg-red-500 border-4 border-white shadow-lg flex items-center justify-center text-white text-xs animate-bounce">📍</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        html: `<div class="w-7 h-7 rounded-full bg-red-500 border-2 border-white shadow-lg flex items-center justify-center text-white text-[10px] animate-bounce">📍</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
       });
 
-      userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(myMap).bindPopup('<b class="text-xs font-black p-1 block">📍 今ここにいるよ！お腹すいた〜！</b>').openPopup();
+      userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(myMap).bindPopup('<b class="text-xs font-black p-1 block">📍 現在地</b>').openPopup();
 
       drawMarkers(spotsData);
     });
 
     myMap.on('locationerror', function() {
-      alert('現在地を取得できませんでした。スマホの設定で位置情報を許可してね！');
+      alert('現在地を取得できませんでした。スマホの位置情報を許可してね！');
     });
   </script>
 </body>
