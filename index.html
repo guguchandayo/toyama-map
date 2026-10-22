@@ -213,3 +213,183 @@
               gmapUrl: gmap,
               postUrl: postUrl,
               imgUrl: img,
+              lat: lat,
+              lng: lng
+            };
+          }).filter(function(s) { return s !== null; });
+
+          // スプレッドシートのデータを先に即時表示！
+          drawMarkers(spotsData);
+        } catch (err) {
+          console.error("CSV Parse Error:", err);
+        }
+
+        // Firebase同期（エラーが起きてもマップ表示を邪魔しない）
+        if (db) {
+          try {
+            db.collection('likes').onSnapshot(snapshot => {
+              snapshot.forEach(doc => {
+                const spotName = decodeURIComponent(doc.id);
+                likeCounts[spotName] = doc.data().count || 0;
+              });
+              drawMarkers(spotsData);
+            }, err => console.log("Firestore sync notice:", err));
+          } catch(e) {}
+        }
+      }
+    });
+
+    function drawMarkers(data) {
+      markerGroup.clearLayers();
+      const listEl = document.getElementById('spotList');
+      listEl.innerHTML = '';
+
+      if (data.length === 0) {
+        listEl.innerHTML = '<p class="text-gray-400 text-center py-4 text-xs">見つからなかった！スプレッドシートに追加してみてね！</p>';
+        return;
+      }
+
+      const myLikes = getMyLikes();
+
+      data.forEach(function(s) {
+        const color = getCategoryColor(s.category);
+        const encodedKw = encodeURIComponent(s.instaKw);
+        const instaSearchUrl = `https://www.instagram.com/explore/tags/${encodedKw}/`;
+        const count = likeCounts[s.name] || 0;
+        const isLiked = !!myLikes[s.name];
+
+        let distText = '';
+        if (userLatLng) {
+          const dist = calculateDistance(userLatLng.lat, userLatLng.lng, s.lat, s.lng);
+          distText = `📍 現在地から ${dist}`;
+        }
+
+        const popupContent = `
+          <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
+            <div class="relative h-36 w-full bg-amber-100">
+              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+              <span class="absolute top-2 left-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white shadow-md" style="background-color:${color}">${s.category}</span>
+              
+              <!-- リアルタイムいいねボタン -->
+              <button onclick="toggleLike('${s.name}')" 
+                      class="absolute bottom-2 right-2 px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-1 transition ${isLiked ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'}">
+                <i class="fa-solid fa-heart ${isLiked ? 'text-white' : 'text-red-500'}"></i> ${count}
+              </button>
+            </div>
+            
+            <div class="p-3.5">
+              <h3 class="font-extrabold text-gray-900 text-sm leading-tight">${s.name}</h3>
+              ${distText ? `<p class="text-[10px] text-orange-600 font-bold mt-0.5">${distText}</p>` : ''}
+              
+              <div class="bg-amber-50/80 p-2 rounded-xl mt-2 border border-amber-100/60">
+                <p class="text-xs text-gray-700 leading-snug font-medium">💬 "${s.desc}"</p>
+              </div>
+
+              <!-- アクションボタン -->
+              <div class="space-y-1.5 mt-3">
+                <a href="${s.postUrl}" target="_blank" class="w-full py-1.5 px-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 shadow hover:opacity-90 transition">
+                  <i class="fa-brands fa-instagram text-sm"></i> 📱 @onakaguguchan の投稿を見る
+                </a>
+                
+                <div class="grid grid-cols-2 gap-1.5">
+                  ${s.instaKw ? `
+                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1.5 px-2 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 shadow hover:opacity-90 transition">
+                      <i class="fa-solid fa-hashtag text-xs"></i> #${s.instaKw}
+                    </a>
+                  ` : ''}
+                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1.5 px-2 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 shadow hover:bg-emerald-700 transition">
+                    <i class="fa-solid fa-map-location-dot text-xs"></i> Googleマップ
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const marker = L.circleMarker([s.lat, s.lng], {
+          radius: 10,
+          fillColor: color,
+          color: '#ffffff',
+          weight: 2.5,
+          opacity: 1,
+          fillOpacity: 0.95
+        }).bindPopup(popupContent);
+
+        markerGroup.addLayer(marker);
+
+        const card = document.createElement('div');
+        card.className = 'bg-white p-3 border border-amber-100 rounded-2xl hover:shadow-lg transition cursor-pointer flex gap-3 items-center group';
+        card.innerHTML = `
+          <img src="${s.imgUrl}" loading="lazy" class="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-amber-50 border border-amber-100 group-hover:scale-105 transition" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start gap-1">
+              <h4 class="font-bold text-gray-800 text-xs truncate group-hover:text-orange-600 transition">${s.name}</h4>
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded text-white whitespace-nowrap" style="background-color:${color}">${s.category}</span>
+            </div>
+            <p class="text-[11px] text-gray-500 truncate mt-0.5">${s.desc}</p>
+            <div class="flex items-center justify-between mt-1">
+              ${distText ? `<span class="text-[10px] font-bold text-orange-600">${distText}</span>` : '<span></span>'}
+              <span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-red-100">
+                <i class="fa-solid fa-heart text-[9px]"></i> ${count}
+              </span>
+            </div>
+          </div>
+        `;
+
+        card.onclick = function() {
+          myMap.flyTo([s.lat, s.lng], 15);
+          marker.openPopup();
+        };
+
+        listEl.appendChild(card);
+      });
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+      const val = e.target.value.toLowerCase();
+      const filtered = spotsData.filter(function(s) {
+        return s.name.toLowerCase().includes(val) || s.desc.toLowerCase().includes(val) || s.instaKw.toLowerCase().includes(val) || s.category.toLowerCase().includes(val);
+      });
+      drawMarkers(filtered);
+    });
+
+    function filterCategory(cat) {
+      document.querySelectorAll('#categoryFilter button').forEach(b => {
+        b.classList.remove('bg-orange-500', 'text-white');
+        b.classList.add('bg-white', 'text-gray-700');
+      });
+      event.target.classList.remove('bg-white', 'text-gray-700');
+      event.target.classList.add('bg-orange-500', 'text-white');
+
+      if (cat === 'all') {
+        drawMarkers(spotsData);
+      } else {
+        const filtered = spotsData.filter(s => s.category.includes(cat) || s.desc.includes(cat));
+        drawMarkers(filtered);
+      }
+    }
+
+    function getLocation() {
+      myMap.locate({setView: true, maxZoom: 15});
+    }
+
+    myMap.on('locationfound', function(e) {
+      userLatLng = e.latlng;
+      if (userMarker) myMap.removeLayer(userMarker);
+      userMarker = L.circleMarker(e.latlng, {
+        radius: 9,
+        fillColor: '#FF3B30',
+        color: '#ffffff',
+        weight: 3,
+        fillOpacity: 1
+      }).addTo(myMap).bindPopup('<b>📍 今ここにいるよ！お腹すいた〜！</b>').openPopup();
+
+      drawMarkers(spotsData);
+    });
+
+    myMap.on('locationerror', function() {
+      alert('現在地を取得できませんでした。スマホの設定で位置情報を許可してね！');
+    });
+  </script>
+</body>
+</html>
