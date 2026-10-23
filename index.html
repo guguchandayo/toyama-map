@@ -30,7 +30,7 @@
     }
     .leaflet-popup-content {
       margin: 0 !important;
-      width: 230px !important;
+      width: 220px !important;
     }
 
     .leaflet-container a.leaflet-popup-close-button {
@@ -47,7 +47,6 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
 
-    /* ピンの大きさを少しだけ小さくして重なりを緩和 */
     .custom-food-pin {
       display: flex;
       align-items: center;
@@ -82,7 +81,7 @@
     <!-- スマホ専用：スワイプハンガーバー -->
     <div id="dragHeader" class="md:hidden w-full py-1.5 flex flex-col items-center justify-center cursor-grab bg-amber-50 rounded-t-3xl border-b border-orange-100 select-none flex-shrink-0">
       <div class="w-10 h-1 bg-orange-300 rounded-full mb-0.5"></div>
-      <span class="text-[9px] font-black text-orange-600">▲ 上にスワイプして店舗一覧・検索 向上 ▲</span>
+      <span class="text-[9px] font-black text-orange-600">▲ 上にスワイプして店舗一覧・検索 ▲</span>
     </div>
 
     <!-- ヘッダー -->
@@ -428,10 +427,11 @@
           distText = `📍 現在地から ${formatDistanceText(rawKm)}`;
         }
 
+        /* ★ポップアップ画像：4:5比率（aspect-[4/5]）でカバー切り抜き★ */
         const popupContent = `
           <div class="bg-white rounded-xl overflow-hidden shadow-sm relative">
-            <div class="relative h-28 w-full bg-slate-900 flex items-center justify-center overflow-hidden">
-              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+            <div class="relative w-full aspect-[4/5] max-h-56 bg-slate-900 flex items-center justify-center overflow-hidden">
+              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
               <span class="absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full text-white shadow" style="background-color:${catStyle.color}">
                 ${catStyle.emoji} ${s.category}
               </span>
@@ -485,12 +485,13 @@
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent);
         markerGroup.addLayer(marker);
 
+        /* ★一覧カード画像：4:5比率（aspect-[4/5]）でサムネイルを表示★ */
         const card = document.createElement('div');
         card.className = 'bg-white p-2 border-2 border-orange-100 rounded-xl hover:border-orange-300 transition cursor-pointer flex gap-2 items-center group relative overflow-hidden';
         
         card.innerHTML = `
-          <div class="w-12 h-12 bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-amber-100">
-            <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+          <div class="w-12 aspect-[4/5] bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-amber-100">
+            <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-start gap-1">
