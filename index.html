@@ -30,7 +30,7 @@
     }
     .leaflet-popup-content {
       margin: 0 !important;
-      width: 220px !important;
+      width: 230px !important;
     }
 
     .leaflet-container a.leaflet-popup-close-button {
@@ -104,6 +104,7 @@
       <div class="flex gap-1 overflow-x-auto pb-0.5 text-[10px]" id="categoryFilter">
         <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-black px-2.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
         <button onclick="filterCategory('がっつり飯')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">がっつり飯 🍜</button>
+        <button onclick="filterCategory('居酒屋')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">居酒屋 🍻</button>
         <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">カフェ ☕️</button>
         <button onclick="filterCategory('観光')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">観光・映え 🚗</button>
         <button onclick="filterCategory('金欠')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">金欠の味方 💸</button>
@@ -228,11 +229,9 @@
       myMap.closePopup();
     }
 
-    // ★Googleドライブリンクや各種画像の自動最適化関数★
     function processImageUrl(rawUrl, fallbackPostUrl) {
       if (!rawUrl) rawUrl = fallbackPostUrl || '';
       
-      // 1. Googleドライブの共有リンク（/file/d/●●●/ 形式）を自動検出して画像直リンクへ変換
       if (rawUrl.includes('drive.google.com')) {
         const matches = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
         if (matches && matches[1]) {
@@ -240,15 +239,9 @@
         }
       }
 
-      // 2. Instagramの投稿URL
       if (rawUrl.includes('instagram.com/p/') || rawUrl.includes('instagram.com/reel/')) {
         const cleanUrl = rawUrl.split('?')[0].replace(/\/$/, '');
         return `${cleanUrl}/media/?size=l`;
-      }
-
-      // 3. 画像直リンク（jpg, png 等）
-      if (rawUrl.match(/\.(jpeg|jpg|gif|png|webp)/i)) {
-        return rawUrl;
       }
 
       return rawUrl;
@@ -287,6 +280,7 @@
 
     function getCategoryStyle(cat) {
       if (!cat) return { color: '#F97316', emoji: '😋' };
+      if (cat.includes('居酒屋') || cat.includes('酒')) return { color: '#DC2626', emoji: '🍻' };
       if (cat.includes('がっつり') || cat.includes('ラーメン') || cat.includes('肉')) return { color: '#EF4444', emoji: '🍜' };
       if (cat.includes('カフェ') || cat.includes('スイーツ')) return { color: '#F59E0B', emoji: '☕️' };
       if (cat.includes('観光') || cat.includes('ドライブ') || cat.includes('映え')) return { color: '#8B5CF6', emoji: '🚗' };
@@ -433,10 +427,11 @@
           distText = `📍 現在地から ${formatDistanceText(rawKm)}`;
         }
 
+        // ★縦長サムネイル（4:5等）が見切れずにキレイに収まる表示設定★
         const popupContent = `
           <div class="bg-white rounded-xl overflow-hidden shadow-sm relative">
-            <div class="relative h-20 w-full bg-orange-100">
-              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+            <div class="relative h-32 w-full bg-slate-900 flex items-center justify-center overflow-hidden">
+              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
               <span class="absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full text-white shadow" style="background-color:${catStyle.color}">
                 ${catStyle.emoji} ${s.category}
               </span>
@@ -467,7 +462,7 @@
                 <div class="grid grid-cols-2 gap-1">
                   ${s.instaKw ? `
                     <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1 px-1 text-white text-[8px] font-black rounded-md flex items-center justify-center gap-0.5 shadow-sm">
-                      <i class="fa-solid fa-hashtag text-white text-[8px]"></i> <span class="text-white">みんなの投稿を見る</span>
+                      <i class="fa-solid fa-hashtag text-white text-[8px]"></i> <span class="text-white">みんなの投稿</span>
                     </a>
                   ` : ''}
                   <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1 px-1 text-white text-[8px] font-black rounded-md flex items-center justify-center gap-0.5 shadow-sm">
@@ -494,7 +489,9 @@
         card.className = 'bg-white p-2 border-2 border-orange-100 rounded-xl hover:border-orange-300 transition cursor-pointer flex gap-2 items-center group relative overflow-hidden';
         
         card.innerHTML = `
-          <img src="${s.imgUrl}" loading="lazy" class="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-amber-50 border border-amber-100" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+          <div class="w-12 h-14 bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-amber-100">
+            <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+          </div>
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-start gap-1">
               <h4 class="font-black text-gray-800 text-xs truncate flex items-center gap-1">${s.name}</h4>
