@@ -42,22 +42,22 @@
     }
 
     #bottomSheet {
-      transition: height 0.2s ease-out;
+      transition: height 0.25s ease-out;
       will-change: height;
-      /* スマホの下部バー（Safe Area）との被りを防止 */
-      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
     }
 
+    /* ピンの大きさを少しだけ小さくして重なりを緩和 */
     .custom-food-pin {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       color: white;
-      font-size: 14px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      font-size: 13px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
       border: 2px solid #ffffff;
     }
   </style>
@@ -77,12 +77,12 @@
   </div>
 
   <!-- サイドバー / スマホ用可変ボトムシート -->
-  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[22vh] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0">
+  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[85px] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0">
     
     <!-- スマホ専用：スワイプハンガーバー -->
-    <div id="dragHeader" class="md:hidden w-full py-2 flex flex-col items-center justify-center cursor-grab bg-amber-50 rounded-t-3xl border-b border-orange-100 select-none flex-shrink-0">
-      <div class="w-10 h-1.5 bg-orange-300 rounded-full mb-1"></div>
-      <span class="text-[10px] font-black text-orange-600">上下スワイプで一覧を伸縮 ↕️</span>
+    <div id="dragHeader" class="md:hidden w-full py-1.5 flex flex-col items-center justify-center cursor-grab bg-amber-50 rounded-t-3xl border-b border-orange-100 select-none flex-shrink-0">
+      <div class="w-10 h-1 bg-orange-300 rounded-full mb-0.5"></div>
+      <span class="text-[9px] font-black text-orange-600">▲ 上にスワイプして店舗一覧・検索 向上 ▲</span>
     </div>
 
     <!-- ヘッダー -->
@@ -188,21 +188,20 @@
       const currentY = e.touches[0].clientY;
       const deltaY = startY - currentY;
       let newHeight = startHeight + deltaY;
-      const vhHeight = (newHeight / window.innerHeight) * 100;
       
-      if (vhHeight >= 15 && vhHeight <= 80) {
-        sheet.style.height = `${vhHeight}vh`;
+      if (newHeight >= 70 && newHeight <= window.innerHeight * 0.8) {
+        sheet.style.height = `${newHeight}px`;
       }
     }, { passive: true });
 
     dragHeader.addEventListener('touchend', () => {
-      sheet.style.transition = 'height 0.2s ease-out';
-      const currentVh = (sheet.offsetHeight / window.innerHeight) * 100;
+      sheet.style.transition = 'height 0.25s ease-out';
+      const currentPx = sheet.offsetHeight;
       
-      if (currentVh < 30) {
-        sheet.style.height = '22vh';
+      if (currentPx < 180) {
+        sheet.style.height = '85px';
         currentMode = 'min';
-      } else if (currentVh < 55) {
+      } else if (currentPx < window.innerHeight * 0.55) {
         sheet.style.height = '45vh';
         currentMode = 'mid';
       } else {
@@ -213,7 +212,7 @@
     });
 
     dragHeader.addEventListener('click', () => {
-      sheet.style.transition = 'height 0.2s ease-out';
+      sheet.style.transition = 'height 0.25s ease-out';
       if (currentMode === 'min') {
         sheet.style.height = '45vh';
         currentMode = 'mid';
@@ -221,7 +220,7 @@
         sheet.style.height = '75vh';
         currentMode = 'max';
       } else {
-        sheet.style.height = '22vh';
+        sheet.style.height = '85px';
         currentMode = 'min';
       }
       setTimeout(() => { myMap.invalidateSize(); }, 250);
@@ -478,9 +477,9 @@
         const foodPinIcon = L.divIcon({
           className: 'custom-pin-wrapper',
           html: `<div class="custom-food-pin" style="background-color: ${catStyle.color}">${catStyle.emoji}</div>`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
-          popupAnchor: [0, -10]
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+          popupAnchor: [0, -8]
         });
 
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent);
@@ -512,7 +511,7 @@
           myMap.flyTo([s.lat, s.lng], 15);
           marker.openPopup();
           if (window.innerWidth < 768) {
-            sheet.style.height = '22vh';
+            sheet.style.height = '85px';
             currentMode = 'min';
             setTimeout(() => { myMap.invalidateSize(); }, 250);
           }
