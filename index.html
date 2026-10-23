@@ -25,12 +25,12 @@
       border-radius: 16px;
       padding: 0px;
       overflow: hidden;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
       border: 2px solid #ffedd5;
     }
     .leaflet-popup-content {
       margin: 0 !important;
-      width: 220px !important;
+      width: 230px !important;
     }
 
     .leaflet-container a.leaflet-popup-close-button {
@@ -427,12 +427,12 @@
           distText = `📍 現在地から ${formatDistanceText(rawKm)}`;
         }
 
-        /* ★ポップアップ画像：4:5比率（aspect-[4/5]）でカバー切り抜き★ */
+        /* ★縦4:横3（aspect-[3/4]）比率に完全対応★ */
         const popupContent = `
           <div class="bg-white rounded-xl overflow-hidden shadow-sm relative">
-            <div class="relative w-full aspect-[4/5] max-h-56 bg-slate-900 flex items-center justify-center overflow-hidden">
-              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
-              <span class="absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full text-white shadow" style="background-color:${catStyle.color}">
+            <div class="relative w-full aspect-[3/4] max-h-64 bg-gray-950 flex items-center justify-center overflow-hidden">
+              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+              <span class="absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full text-white shadow-md z-20" style="background-color:${catStyle.color}">
                 ${catStyle.emoji} ${s.category}
               </span>
               <button onclick="closeMyPopup()" 
@@ -441,7 +441,7 @@
               </button>
             </div>
             
-            <div class="p-2 space-y-1">
+            <div class="p-2 space-y-1 bg-white">
               <div class="flex items-center justify-between">
                 <h3 class="font-black text-gray-900 text-xs truncate leading-tight flex-1 pr-1">${s.name}</h3>
                 <button onclick="toggleLike('${s.name}')" 
@@ -485,13 +485,13 @@
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent);
         markerGroup.addLayer(marker);
 
-        /* ★一覧カード画像：4:5比率（aspect-[4/5]）でサムネイルを表示★ */
+        /* ★一覧カード画像：縦4:横3（aspect-[3/4]）比率★ */
         const card = document.createElement('div');
         card.className = 'bg-white p-2 border-2 border-orange-100 rounded-xl hover:border-orange-300 transition cursor-pointer flex gap-2 items-center group relative overflow-hidden';
         
         card.innerHTML = `
-          <div class="w-12 aspect-[4/5] bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-amber-100">
-            <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+          <div class="w-12 aspect-[3/4] bg-gray-950 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-amber-100">
+            <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-start gap-1">
