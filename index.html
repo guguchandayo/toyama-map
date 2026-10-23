@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>食いしん坊大学生の富山たべマップ 😋</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -44,18 +44,20 @@
     #bottomSheet {
       transition: height 0.2s ease-out;
       will-change: height;
+      /* スマホの下部バー（Safe Area）との被りを防止 */
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
     }
 
     .custom-food-pin {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
       color: white;
-      font-size: 16px;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       border: 2px solid #ffffff;
     }
   </style>
@@ -75,16 +77,16 @@
   </div>
 
   <!-- サイドバー / スマホ用可変ボトムシート -->
-  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[18vh] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0">
+  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[22vh] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0">
     
     <!-- スマホ専用：スワイプハンガーバー -->
-    <div id="dragHeader" class="md:hidden w-full py-1.5 flex flex-col items-center justify-center cursor-grab bg-amber-50 rounded-t-3xl border-b border-orange-100 select-none">
-      <div class="w-10 h-1 bg-orange-300 rounded-full mb-0.5"></div>
-      <span class="text-[9px] font-black text-orange-600">上下スワイプで一覧を伸縮 ↕️</span>
+    <div id="dragHeader" class="md:hidden w-full py-2 flex flex-col items-center justify-center cursor-grab bg-amber-50 rounded-t-3xl border-b border-orange-100 select-none flex-shrink-0">
+      <div class="w-10 h-1.5 bg-orange-300 rounded-full mb-1"></div>
+      <span class="text-[10px] font-black text-orange-600">上下スワイプで一覧を伸縮 ↕️</span>
     </div>
 
     <!-- ヘッダー -->
-    <div class="px-3 py-1.5 md:p-4 bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-sm flex items-center justify-between md:block">
+    <div class="px-3 py-1.5 md:p-4 bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-sm flex items-center justify-between md:block flex-shrink-0">
       <div>
         <h1 class="text-xs md:text-base font-black flex items-center gap-1">
           <i class="fa-solid fa-face-grin-squint text-yellow-200"></i> 食いしん坊大学生の富山たべマップ 😋
@@ -93,7 +95,7 @@
     </div>
 
     <!-- 検索 & フィルター & 並び替え -->
-    <div class="p-2 md:p-3 border-b border-amber-100 space-y-1.5 bg-gradient-to-b from-amber-50/60 to-white">
+    <div class="p-2 md:p-3 border-b border-amber-100 space-y-1.5 bg-gradient-to-b from-amber-50/60 to-white flex-shrink-0">
       <div class="relative">
         <i class="fa-solid fa-magnifying-glass absolute left-3 top-2 text-orange-400 text-xs"></i>
         <input type="text" id="searchInput" placeholder="店名・大盛り・カフェ等で検索..." 
@@ -188,7 +190,7 @@
       let newHeight = startHeight + deltaY;
       const vhHeight = (newHeight / window.innerHeight) * 100;
       
-      if (vhHeight >= 12 && vhHeight <= 80) {
+      if (vhHeight >= 15 && vhHeight <= 80) {
         sheet.style.height = `${vhHeight}vh`;
       }
     }, { passive: true });
@@ -198,10 +200,10 @@
       const currentVh = (sheet.offsetHeight / window.innerHeight) * 100;
       
       if (currentVh < 30) {
-        sheet.style.height = '15vh';
+        sheet.style.height = '22vh';
         currentMode = 'min';
       } else if (currentVh < 55) {
-        sheet.style.height = '40vh';
+        sheet.style.height = '45vh';
         currentMode = 'mid';
       } else {
         sheet.style.height = '75vh';
@@ -213,13 +215,13 @@
     dragHeader.addEventListener('click', () => {
       sheet.style.transition = 'height 0.2s ease-out';
       if (currentMode === 'min') {
-        sheet.style.height = '40vh';
+        sheet.style.height = '45vh';
         currentMode = 'mid';
       } else if (currentMode === 'mid') {
         sheet.style.height = '75vh';
         currentMode = 'max';
       } else {
-        sheet.style.height = '15vh';
+        sheet.style.height = '22vh';
         currentMode = 'min';
       }
       setTimeout(() => { myMap.invalidateSize(); }, 250);
@@ -427,10 +429,9 @@
           distText = `📍 現在地から ${formatDistanceText(rawKm)}`;
         }
 
-        // ★縦長サムネイル（4:5等）が見切れずにキレイに収まる表示設定★
         const popupContent = `
           <div class="bg-white rounded-xl overflow-hidden shadow-sm relative">
-            <div class="relative h-32 w-full bg-slate-900 flex items-center justify-center overflow-hidden">
+            <div class="relative h-28 w-full bg-slate-900 flex items-center justify-center overflow-hidden">
               <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
               <span class="absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full text-white shadow" style="background-color:${catStyle.color}">
                 ${catStyle.emoji} ${s.category}
@@ -477,9 +478,9 @@
         const foodPinIcon = L.divIcon({
           className: 'custom-pin-wrapper',
           html: `<div class="custom-food-pin" style="background-color: ${catStyle.color}">${catStyle.emoji}</div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-          popupAnchor: [0, -12]
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+          popupAnchor: [0, -10]
         });
 
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent);
@@ -489,7 +490,7 @@
         card.className = 'bg-white p-2 border-2 border-orange-100 rounded-xl hover:border-orange-300 transition cursor-pointer flex gap-2 items-center group relative overflow-hidden';
         
         card.innerHTML = `
-          <div class="w-12 h-14 bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-amber-100">
+          <div class="w-12 h-12 bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-amber-100">
             <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
           </div>
           <div class="flex-1 min-w-0">
@@ -511,7 +512,7 @@
           myMap.flyTo([s.lat, s.lng], 15);
           marker.openPopup();
           if (window.innerWidth < 768) {
-            sheet.style.height = '15vh';
+            sheet.style.height = '22vh';
             currentMode = 'min';
             setTimeout(() => { myMap.invalidateSize(); }, 250);
           }
