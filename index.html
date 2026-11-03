@@ -74,7 +74,7 @@
     </button>
   </div>
 
-  <!-- サイドバー / スマホ用可変ボトムシート（背景色・下部固定を修正） -->
+  <!-- サイドバー / スマホ用可変ボトムシート -->
   <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[85px] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0 overflow-hidden">
     
     <!-- スマホ専用：スワイプハンガーバー -->
@@ -96,11 +96,11 @@
     <div class="p-2 md:p-3 border-b border-amber-100 space-y-1.5 bg-gradient-to-b from-amber-50/60 to-white flex-shrink-0">
       <div class="relative">
         <i class="fa-solid fa-magnifying-glass absolute left-3 top-2 text-orange-400 text-xs"></i>
-        <input type="text" id="searchInput" placeholder="店名・ラーメン・洋食等で検索..." 
+        <input type="text" id="searchInput" placeholder="店名・ラーメン・カフェ等で検索..." 
                class="w-full pl-8 pr-2.5 py-1 border-2 border-orange-200 rounded-full text-xs font-bold focus:outline-none focus:border-orange-400 bg-white">
       </div>
       
-      <!-- カテゴリタグ（13種類） -->
+      <!-- カテゴリタグ（全16種類） -->
       <div class="flex gap-1 overflow-x-auto pb-0.5 text-[10px]" id="categoryFilter">
         <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-black px-2.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
         <button onclick="filterCategory('洋食')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">洋食 🍳</button>
@@ -112,6 +112,9 @@
         <button onclick="filterCategory('肉ご飯')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">肉ご飯 🥩</button>
         <button onclick="filterCategory('カレー')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">カレー 🍛</button>
         <button onclick="filterCategory('カフェ')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">カフェ ☕️</button>
+        <button onclick="filterCategory('ケーキ屋')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">ケーキ屋 🍰</button>
+        <button onclick="filterCategory('和菓子屋')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">和菓子屋 🍡</button>
+        <button onclick="filterCategory('軽食')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">軽食 🥪</button>
         <button onclick="filterCategory('バー')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">バー 🍸</button>
         <button onclick="filterCategory('居酒屋')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">居酒屋 🍻</button>
         <button onclick="filterCategory('ドライブ')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">ドライブ 🚗</button>
@@ -134,7 +137,7 @@
       <p class="text-orange-800/60 text-center py-4 text-xs font-black animate-pulse">うまい飯データを読み込み中...🍚</p>
     </div>
 
-    <!-- 注意書き（マップの透けを完全にシャットアウトする白背景フッター） -->
+    <!-- 注意書き（マップ透過シャットアウトフッター） -->
     <div class="p-2 text-[9px] text-gray-400 text-center border-t border-amber-100 bg-white leading-tight flex-shrink-0" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
       ※掲載情報や位置情報は変更されている場合があります。お出かけ前に必ず公式情報等をご確認ください。
     </div>
@@ -289,28 +292,29 @@
       applyFilterAndDraw();
     }
 
-  function getCategoryStyle(cat) {
-  if (!cat) return { color: '#F97316', emoji: '😋' };
-  
-  if (cat.includes('ラーメン')) return { color: '#EF4444', emoji: '🍜' };
-  if (cat.includes('カレー')) return { color: '#D97706', emoji: '🍛' };
-  if (cat.includes('肉ご飯')) return { color: '#DC2626', emoji: '🥩' };
-  if (cat.includes('魚ご飯')) return { color: '#0284C7', emoji: '🐟' };
-  if (cat.includes('洋食')) return { color: '#F59E0B', emoji: '🍳' };
-  if (cat.includes('中華')) return { color: '#EA580C', emoji: '🥟' };
-  if (cat.includes('和食')) return { color: '#16A34A', emoji: '🍱' };
-  if (cat.includes('ランチ')) return { color: '#EAB308', emoji: '🍱' };
-  if (cat.includes('カフェ')) return { color: '#B45309', emoji: '☕️' };
-  if (cat.includes('ケーキ屋')) return { color: '#EC4899', emoji: '🍰' };
-  if (cat.includes('和菓子屋')) return { color: '#84CC16', emoji: '🍡' };
-  if (cat.includes('軽食')) return { color: '#14B8A6', emoji: '🥪' };
-  if (cat.includes('バー')) return { color: '#4C1D95', emoji: '🍸' };
-  if (cat.includes('居酒屋')) return { color: '#B91C1C', emoji: '🍻' };
-  if (cat.includes('ドライブ')) return { color: '#7C3AED', emoji: '🚗' };
-  if (cat.includes('食べ放題')) return { color: '#059669', emoji: '🍽️' };
-  
-  return { color: '#F97316', emoji: '🍴' };
-}
+    /* 16カテゴリー対応のスタイル・絵文字判定ロジック */
+    function getCategoryStyle(cat) {
+      if (!cat) return { color: '#F97316', emoji: '😋' };
+      
+      if (cat.includes('ラーメン')) return { color: '#EF4444', emoji: '🍜' };
+      if (cat.includes('カレー')) return { color: '#D97706', emoji: '🍛' };
+      if (cat.includes('肉ご飯')) return { color: '#DC2626', emoji: '🥩' };
+      if (cat.includes('魚ご飯')) return { color: '#0284C7', emoji: '🐟' };
+      if (cat.includes('洋食')) return { color: '#F59E0B', emoji: '🍳' };
+      if (cat.includes('中華')) return { color: '#EA580C', emoji: '🥟' };
+      if (cat.includes('和食')) return { color: '#16A34A', emoji: '🍱' };
+      if (cat.includes('ランチ')) return { color: '#EAB308', emoji: '🍱' };
+      if (cat.includes('カフェ')) return { color: '#B45309', emoji: '☕️' };
+      if (cat.includes('ケーキ屋')) return { color: '#EC4899', emoji: '🍰' };
+      if (cat.includes('和菓子屋')) return { color: '#84CC16', emoji: '🍡' };
+      if (cat.includes('軽食')) return { color: '#14B8A6', emoji: '🥪' };
+      if (cat.includes('バー')) return { color: '#4C1D95', emoji: '🍸' };
+      if (cat.includes('居酒屋')) return { color: '#B91C1C', emoji: '🍻' };
+      if (cat.includes('ドライブ')) return { color: '#7C3AED', emoji: '🚗' };
+      if (cat.includes('食べ放題')) return { color: '#059669', emoji: '🍽️' };
+      
+      return { color: '#F97316', emoji: '🍴' };
+    }
 
     function calculateRawDistance(lat1, lon1, lat2, lon2) {
       const R = 6371;
