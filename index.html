@@ -15,7 +15,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
   <style>
-    body {
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
       font-family: 'M PLUS Rounded 1c', sans-serif;
       touch-action: manipulation;
     }
@@ -74,8 +78,8 @@
     </button>
   </div>
 
-  <!-- サイドバー / スマホ用可変ボトムシート -->
-  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[85px] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none absolute md:relative bottom-0 left-0 overflow-hidden">
+  <!-- サイドバー / スマホ用可変ボトムシート（下部の隙間ゼロ設計） -->
+  <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[90px] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none fixed md:relative bottom-0 inset-x-0 overflow-hidden">
     
     <!-- スマホ専用：スワイプハンガーバー -->
     <div id="dragHeader" class="md:hidden w-full py-1.5 flex flex-col items-center justify-center cursor-grab bg-amber-50 rounded-t-3xl border-b border-orange-100 select-none flex-shrink-0">
@@ -133,11 +137,11 @@
     </div>
 
     <!-- スポットリスト -->
-    <div id="spotList" class="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 bg-white">
+    <div id="spotList" class="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 bg-white min-h-0">
       <p class="text-orange-800/60 text-center py-4 text-xs font-black animate-pulse">うまい飯データを読み込み中...🍚</p>
     </div>
 
-    <!-- 注意書き（マップ透過シャットアウトフッター） -->
+    <!-- 注意書き（画面底面に完全密着させるフッター） -->
     <div class="p-2 text-[9px] text-gray-400 text-center border-t border-amber-100 bg-white leading-tight flex-shrink-0" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
       ※掲載情報や位置情報は変更されている場合があります。お出かけ前に必ず公式情報等をご確認ください。
     </div>
@@ -202,7 +206,7 @@
       const deltaY = startY - currentY;
       let newHeight = startHeight + deltaY;
       
-      if (newHeight >= 70 && newHeight <= window.innerHeight * 0.8) {
+      if (newHeight >= 90 && newHeight <= window.innerHeight * 0.85) {
         sheet.style.height = `${newHeight}px`;
       }
     }, { passive: true });
@@ -212,13 +216,13 @@
       const currentPx = sheet.offsetHeight;
       
       if (currentPx < 180) {
-        sheet.style.height = '85px';
+        sheet.style.height = '90px';
         currentMode = 'min';
       } else if (currentPx < window.innerHeight * 0.55) {
-        sheet.style.height = '45vh';
+        sheet.style.height = '50vh';
         currentMode = 'mid';
       } else {
-        sheet.style.height = '75vh';
+        sheet.style.height = '85vh';
         currentMode = 'max';
       }
       setTimeout(() => { myMap.invalidateSize(); }, 250);
@@ -227,13 +231,13 @@
     dragHeader.addEventListener('click', () => {
       sheet.style.transition = 'height 0.25s ease-out';
       if (currentMode === 'min') {
-        sheet.style.height = '45vh';
+        sheet.style.height = '50vh';
         currentMode = 'mid';
       } else if (currentMode === 'mid') {
-        sheet.style.height = '75vh';
+        sheet.style.height = '85vh';
         currentMode = 'max';
       } else {
-        sheet.style.height = '85px';
+        sheet.style.height = '90px';
         currentMode = 'min';
       }
       setTimeout(() => { myMap.invalidateSize(); }, 250);
@@ -538,7 +542,7 @@
           myMap.flyTo([s.lat, s.lng], 15);
           marker.openPopup();
           if (window.innerWidth < 768) {
-            sheet.style.height = '85px';
+            sheet.style.height = '90px';
             currentMode = 'min';
             setTimeout(() => { myMap.invalidateSize(); }, 250);
           }
