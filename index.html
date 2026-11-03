@@ -101,7 +101,7 @@
                class="w-full pl-8 pr-2.5 py-1 border-2 border-orange-200 rounded-full text-xs font-bold focus:outline-none focus:border-orange-400 bg-white">
       </div>
       
-      <!-- カテゴリタグ（全13種類対応） -->
+      <!-- カテゴリタグ（13種類） -->
       <div class="flex gap-1 overflow-x-auto pb-0.5 text-[10px]" id="categoryFilter">
         <button onclick="filterCategory('all')" class="cat-btn bg-orange-500 text-white font-black px-2.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">全部 🍚</button>
         <button onclick="filterCategory('洋食')" class="cat-btn bg-white text-orange-900 font-bold border border-orange-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">洋食 🍳</button>
@@ -133,6 +133,11 @@
     <!-- スポットリスト -->
     <div id="spotList" class="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 bg-amber-50/10">
       <p class="text-orange-800/60 text-center py-4 text-xs font-black animate-pulse">うまい飯データを読み込み中...🍚</p>
+    </div>
+
+    <!-- 注意書き（フッター） -->
+    <div class="p-2 text-[9px] text-gray-400 text-center border-t border-amber-100 bg-amber-50/50 leading-tight flex-shrink-0">
+      ※掲載情報や位置情報は変更されている場合があります。お出かけ前に必ず公式情報等をご確認ください。
     </div>
   </div>
 
@@ -166,4 +171,440 @@
       attribution: '&copy; OpenStreetMap'
     }).addTo(myMap);
 
-    const csvUrl = '
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
+
+    let spotsData = [];
+    let currentFilterCat = 'all';
+    let currentSearchVal = '';
+    let currentSortMode = 'default';
+
+    let markerGroup = L.layerGroup().addTo(myMap);
+    let userMarker = null;
+    let userLatLng = null;
+    let likeCounts = {};
+
+    const sheet = document.getElementById('bottomSheet');
+    const dragHeader = document.getElementById('dragHeader');
+    let startY = 0;
+    let startHeight = 0;
+    let currentMode = 'min';
+
+    dragHeader.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+      startHeight = sheet.offsetHeight;
+      sheet.style.transition = 'none';
+    }, { passive: true });
+
+    dragHeader.addEventListener('touchmove', (e) => {
+      const currentY = e.touches[0].clientY;
+      const deltaY = startY - currentY;
+      let newHeight = startHeight + deltaY;
+      
+      if (newHeight >= 70 && newHeight <= window.innerHeight * 0.8) {
+        sheet.style.height = `${newHeight}px`;
+      }
+    }, { passive: true });
+
+    dragHeader.addEventListener('touchend', () => {
+      sheet.style.transition = 'height 0.25s ease-out';
+      const currentPx = sheet.offsetHeight;
+      
+      if (currentPx < 180) {
+        sheet.style.height = '85px';
+        currentMode = 'min';
+      } else if (currentPx < window.innerHeight * 0.55) {
+        sheet.style.height = '45vh';
+        currentMode = 'mid';
+      } else {
+        sheet.style.height = '75vh';
+        currentMode = 'max';
+      }
+      setTimeout(() => { myMap.invalidateSize(); }, 250);
+    });
+
+    dragHeader.addEventListener('click', () => {
+      sheet.style.transition = 'height 0.25s ease-out';
+      if (currentMode === 'min') {
+        sheet.style.height = '45vh';
+        currentMode = 'mid';
+      } else if (currentMode === 'mid') {
+        sheet.style.height = '75vh';
+        currentMode = 'max';
+      } else {
+        sheet.style.height = '85px';
+        currentMode = 'min';
+      }
+      setTimeout(() => { myMap.invalidateSize(); }, 250);
+    });
+
+    function closeMyPopup() {
+      myMap.closePopup();
+    }
+
+    function processImageUrl(rawUrl, fallbackPostUrl) {
+      if (!rawUrl) rawUrl = fallbackPostUrl || '';
+      
+      if (rawUrl.includes('drive.google.com')) {
+        const matches = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (matches && matches[1]) {
+          return `https://drive.google.com/uc?export=view&id=${matches[1]}`;
+        }
+      }
+
+      if (rawUrl.includes('instagram.com/p/') || rawUrl.includes('instagram.com/reel/')) {
+        const cleanUrl = rawUrl.split('?')[0].replace(/\/$/, '');
+        return `${cleanUrl}/media/?size=l`;
+      }
+
+      return rawUrl;
+    }
+
+    function getMyLikes() {
+      return JSON.parse(localStorage.getItem('my_liked_spots') || '{}');
+    }
+
+    function setMyLike(name, isLiked) {
+      const likes = getMyLikes();
+      if (isLiked) likes[name] = true;
+      else delete likes[name];
+      localStorage.setItem('my_liked_spots', JSON.stringify(likes));
+    }
+
+    function toggleLike(spotName) {
+      const myLikes = getMyLikes();
+      const currentlyLiked = !myLikes[spotName];
+      const newLiked = !currentlyLiked;
+
+      setMyLike(spotName, newLiked);
+
+      const currentCount = likeCounts[spotName] || 0;
+      likeCounts[spotName] = Math.max(0, currentCount + (newLiked ? 1 : -1));
+
+      if (db) {
+        const docRef = db.collection('likes').doc(encodeURIComponent(spotName));
+        docRef.set({
+          count: firebase.firestore.FieldValue.increment(newLiked ? 1 : -1)
+        }, { merge: true }).catch(err => console.log("Like sync error:", err));
+      }
+
+      applyFilterAndDraw();
+    }
+
+    function getCategoryStyle(cat) {
+      if (!cat) return { color: '#F97316', emoji: '😋' };
+      if (cat.includes('ラーメン')) return { color: '#EF4444', emoji: '🍜' };
+      if (cat.includes('カレー')) return { color: '#D97706', emoji: '🍛' };
+      if (cat.includes('肉ご飯')) return { color: '#DC2626', emoji: '🥩' };
+      if (cat.includes('魚ご飯')) return { color: '#0284C7', emoji: '🐟' };
+      if (cat.includes('洋食')) return { color: '#F59E0B', emoji: '🍳' };
+      if (cat.includes('中華')) return { color: '#EA580C', emoji: '🥟' };
+      if (cat.includes('和食')) return { color: '#16A34A', emoji: '🍱' };
+      if (cat.includes('ランチ')) return { color: '#EAB308', emoji: '🍱' };
+      if (cat.includes('カフェ')) return { color: '#B45309', emoji: '☕️' };
+      if (cat.includes('バー')) return { color: '#4C1D95', emoji: '🍸' };
+      if (cat.includes('居酒屋')) return { color: '#B91C1C', emoji: '🍻' };
+      if (cat.includes('ドライブ')) return { color: '#7C3AED', emoji: '🚗' };
+      if (cat.includes('食べ放題')) return { color: '#059669', emoji: '🍽️' };
+      return { color: '#F97316', emoji: '🍴' };
+    }
+
+    function calculateRawDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    function formatDistanceText(rawKm) {
+      if (rawKm < 1) return `${Math.round(rawKm * 1000)}m`;
+      return `${rawKm.toFixed(1)}km`;
+    }
+
+    Papa.parse(csvUrl, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(res) {
+        try {
+          spotsData = res.data.map(function(row, idx) {
+            const name = row['name'] || row['名称'] || row['名前'] || '';
+            if (!name) return null;
+
+            const kw = row['instaKeyword'] || row['instaKetword'] || row['ハッシュタグ'] || name;
+            let postUrl = row['postUrl'] || row['postURL'] || row['投稿URL'] || row['link'] || 'https://www.instagram.com/onakaguguchan/';
+
+            let rawImg = row['image'] || row['image_url'] || row['画像'] || '';
+            let img = processImageUrl(rawImg, postUrl);
+
+            if (!img || img === 'https://www.instagram.com/onakaguguchan/') {
+              img = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop';
+            }
+
+            let gmap = row['googleMap'] || row['google_map'] || row['Googleマップ'] || '';
+            if (!gmap) {
+              gmap = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' 富山')}`;
+            }
+
+            const rawLat = String(row['lat'] || row['緯度'] || '').replace(/[^\d.]/g, '');
+            const rawLng = String(row['lng'] || row['経度'] || '').replace(/[^\d.]/g, '');
+            const lat = parseFloat(rawLat);
+            const lng = parseFloat(rawLng);
+
+            if (isNaN(lat) || isNaN(lng)) return null;
+
+            return {
+              id: idx,
+              name: name,
+              desc: row['description'] || row['詳細'] || row['説明'] || 'おいしい噂を聞きつけて調査中！',
+              category: row['category'] || row['カテゴリ'] || 'グルメ',
+              instaKw: String(kw).trim(),
+              gmapUrl: gmap,
+              postUrl: postUrl,
+              imgUrl: img,
+              lat: lat,
+              lng: lng
+            };
+          }).filter(function(s) { return s !== null; });
+
+          applyFilterAndDraw();
+        } catch (err) {
+          console.error("CSV Parse Error:", err);
+        }
+
+        if (db) {
+          try {
+            db.collection('likes').onSnapshot(snapshot => {
+              snapshot.forEach(doc => {
+                const spotName = decodeURIComponent(doc.id);
+                likeCounts[spotName] = doc.data().count || 0;
+              });
+              applyFilterAndDraw();
+            }, err => console.log("Firestore sync notice:", err));
+          } catch(e) {}
+        }
+      }
+    });
+
+    function applyFilterAndDraw() {
+      let result = [...spotsData];
+
+      if (currentSearchVal) {
+        result = result.filter(s => 
+          s.name.toLowerCase().includes(currentSearchVal) || 
+          s.desc.toLowerCase().includes(currentSearchVal) || 
+          s.instaKw.toLowerCase().includes(currentSearchVal) || 
+          s.category.toLowerCase().includes(currentSearchVal)
+        );
+      }
+
+      if (currentFilterCat !== 'all') {
+        result = result.filter(s => s.category.includes(currentFilterCat) || s.desc.includes(currentFilterCat));
+      }
+
+      if (currentSortMode === 'distance' && userLatLng) {
+        result.sort((a, b) => {
+          const distA = calculateRawDistance(userLatLng.lat, userLatLng.lng, a.lat, a.lng);
+          const distB = calculateRawDistance(userLatLng.lat, userLatLng.lng, b.lat, b.lng);
+          return distA - distB;
+        });
+      } else if (currentSortMode === 'likes') {
+        result.sort((a, b) => {
+          const countA = likeCounts[a.name] || 0;
+          const countB = likeCounts[b.name] || 0;
+          return countB - countA;
+        });
+      }
+
+      drawMarkers(result);
+    }
+
+    function drawMarkers(data) {
+      markerGroup.clearLayers();
+      const listEl = document.getElementById('spotList');
+      listEl.innerHTML = '';
+
+      if (data.length === 0) {
+        listEl.innerHTML = '<p class="text-orange-800/60 font-bold text-center py-4 text-xs">お店が見つからなかった！</p>';
+        return;
+      }
+
+      const myLikes = getMyLikes();
+
+      data.forEach(function(s) {
+        const catStyle = getCategoryStyle(s.category);
+        const encodedKw = encodeURIComponent(s.instaKw);
+        const instaSearchUrl = `https://www.instagram.com/explore/tags/${encodedKw}/`;
+        const count = likeCounts[s.name] || 0;
+        const isLiked = !!myLikes[s.name];
+
+        let distText = '';
+        if (userLatLng) {
+          const rawKm = calculateRawDistance(userLatLng.lat, userLatLng.lng, s.lat, s.lng);
+          distText = `📍 現在地から ${formatDistanceText(rawKm)}`;
+        }
+
+        const popupContent = `
+          <div class="bg-white rounded-xl overflow-hidden shadow-sm relative">
+            <div class="relative w-full aspect-[3/4] bg-slate-900 flex items-center justify-center overflow-hidden">
+              <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+              <span class="absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full text-white shadow-md z-20" style="background-color:${catStyle.color}">
+                ${catStyle.emoji} ${s.category}
+              </span>
+              <button onclick="closeMyPopup()" 
+                      class="absolute top-1.5 right-1.5 z-30 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center font-black text-xs shadow-md border border-white active:scale-90">
+                ✖
+              </button>
+            </div>
+            
+            <div class="p-2 space-y-1 bg-white">
+              <div class="flex items-center justify-between">
+                <h3 class="font-black text-gray-900 text-xs truncate leading-tight flex-1 pr-1">${s.name}</h3>
+                <button onclick="toggleLike('${s.name}')" 
+                        class="px-2 py-0.5 rounded-lg text-[9px] font-black shadow-sm flex items-center gap-0.5 ${isLiked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-700'}">
+                  <i class="fa-solid fa-heart ${isLiked ? 'text-white' : 'text-red-500'}"></i> ${count}
+                </button>
+              </div>
+              
+              ${distText ? `<p class="text-[8px] text-orange-600 font-extrabold">${distText}</p>` : ''}
+              
+              <p class="text-[10px] text-gray-700 leading-tight font-bold bg-amber-50/80 p-1 rounded-lg border border-amber-100">💬 "${s.desc}"</p>
+
+              <div class="space-y-1 pt-0.5">
+                <a href="${s.postUrl}" target="_blank" class="w-full py-1 px-1.5 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[10px] font-black rounded-lg flex items-center justify-center gap-1 shadow-sm">
+                  <i class="fa-brands fa-instagram text-white text-xs"></i> <span class="text-white">投稿を見る</span>
+                </a>
+                
+                <div class="grid grid-cols-2 gap-1">
+                  ${s.instaKw ? `
+                    <a href="${instaSearchUrl}" target="_blank" class="insta-btn py-1 px-1 text-white text-[8px] font-black rounded-md flex items-center justify-center gap-0.5 shadow-sm">
+                      <i class="fa-solid fa-hashtag text-white text-[8px]"></i> <span class="text-white">みんなの投稿</span>
+                    </a>
+                  ` : ''}
+                  <a href="${s.gmapUrl}" target="_blank" class="bg-emerald-600 py-1 px-1 text-white text-[8px] font-black rounded-md flex items-center justify-center gap-0.5 shadow-sm">
+                    <i class="fa-solid fa-map-location-dot text-white text-[8px]"></i> <span class="text-white">Map</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const foodPinIcon = L.divIcon({
+          className: 'custom-pin-wrapper',
+          html: `<div class="custom-food-pin" style="background-color: ${catStyle.color}">${catStyle.emoji}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+          popupAnchor: [0, -8]
+        });
+
+        const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent);
+        markerGroup.addLayer(marker);
+
+        const card = document.createElement('div');
+        card.className = 'bg-white p-2 border-2 border-orange-100 rounded-xl hover:border-orange-300 transition cursor-pointer flex gap-2 items-center group relative overflow-hidden';
+        
+        card.innerHTML = `
+          <div class="w-12 aspect-[3/4] bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-amber-100">
+            <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start gap-1">
+              <h4 class="font-black text-gray-800 text-xs truncate flex items-center gap-1">${s.name}</h4>
+              <span class="text-[8px] font-black px-1.5 py-0.5 rounded-full text-white whitespace-nowrap" style="background-color:${catStyle.color}">${catStyle.emoji} ${s.category}</span>
+            </div>
+            <p class="text-[9px] text-gray-500 font-bold truncate mt-0.5">${s.desc}</p>
+            <div class="flex items-center justify-between mt-1">
+              ${distText ? `<span class="text-[8px] font-black text-orange-600">${distText}</span>` : '<span></span>'}
+              <span class="text-[8px] font-black text-red-500 bg-red-50 px-1 py-0.5 rounded-full flex items-center gap-0.5 border border-red-100">
+                <i class="fa-solid fa-heart text-[7px]"></i> ${count}
+              </span>
+            </div>
+          </div>
+        `;
+
+        card.onclick = function() {
+          myMap.flyTo([s.lat, s.lng], 15);
+          marker.openPopup();
+          if (window.innerWidth < 768) {
+            sheet.style.height = '85px';
+            currentMode = 'min';
+            setTimeout(() => { myMap.invalidateSize(); }, 250);
+          }
+        };
+
+        listEl.appendChild(card);
+      });
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+      currentSearchVal = e.target.value.toLowerCase();
+      applyFilterAndDraw();
+    });
+
+    function filterCategory(cat) {
+      currentFilterCat = cat;
+      document.querySelectorAll('#categoryFilter button').forEach(b => {
+        b.classList.remove('bg-orange-500', 'text-white', 'font-black');
+        b.classList.add('bg-white', 'text-orange-900', 'font-bold');
+      });
+      event.target.classList.remove('bg-white', 'text-orange-900');
+      event.target.classList.add('bg-orange-500', 'text-white', 'font-black');
+
+      applyFilterAndDraw();
+    }
+
+    function setSortMode(mode) {
+      if (mode === 'distance' && !userLatLng) {
+        alert('現在地が取得されていません！右上の「現在地」ボタンを押してね！');
+        return;
+      }
+      currentSortMode = mode;
+      
+      document.querySelectorAll('#sortFilter button').forEach(b => {
+        b.classList.remove('bg-orange-500', 'text-white', 'font-black');
+        b.classList.add('bg-amber-100', 'text-amber-900', 'font-bold');
+      });
+      event.target.classList.remove('bg-amber-100', 'text-amber-900', 'font-bold');
+      event.target.classList.add('bg-orange-500', 'text-white', 'font-black');
+
+      applyFilterAndDraw();
+    }
+
+    function getLocation() {
+      myMap.locate({setView: true, maxZoom: 15});
+    }
+
+    myMap.on('locationfound', function(e) {
+      userLatLng = e.latlng;
+      if (userMarker) myMap.removeLayer(userMarker);
+      
+      const userIcon = L.divIcon({
+        html: `<div class="w-6 h-6 rounded-full bg-red-500 border-2 border-white shadow-lg flex items-center justify-center text-white text-[9px] animate-bounce">📍</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(myMap).bindPopup('<b class="text-xs font-black p-1 block">📍 現在地</b>').openPopup();
+
+      currentSortMode = 'distance';
+      const btns = document.querySelectorAll('#sortFilter button');
+      btns.forEach(b => {
+        b.classList.remove('bg-orange-500', 'text-white', 'font-black');
+        b.classList.add('bg-amber-100', 'text-amber-900', 'font-bold');
+      });
+      btns[1].classList.remove('bg-amber-100', 'text-amber-900', 'font-bold');
+      btns[1].classList.add('bg-orange-500', 'text-white', 'font-black');
+
+      applyFilterAndDraw();
+    });
+
+    myMap.on('locationerror', function() {
+      alert('現在地を取得できませんでした。スマホの位置情報を許可してね！');
+    });
+  </script>
+</body>
+</html>
