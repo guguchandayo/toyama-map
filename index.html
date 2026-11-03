@@ -78,7 +78,7 @@
     </button>
   </div>
 
-  <!-- サイドバー / スマホ用可変ボトムシート（下部の隙間ゼロ設計） -->
+  <!-- サイドバー / スマホ用可変ボトムシート（下部隙間ゼロ構造） -->
   <div id="bottomSheet" class="w-full md:w-80 bg-white shadow-2xl flex flex-col z-10 h-[90px] md:h-full order-2 md:order-1 border-t-4 md:border-t-0 md:border-r-4 border-orange-400 rounded-t-3xl md:rounded-none fixed md:relative bottom-0 inset-x-0 overflow-hidden">
     
     <!-- スマホ専用：スワイプハンガーバー -->
@@ -141,7 +141,7 @@
       <p class="text-orange-800/60 text-center py-4 text-xs font-black animate-pulse">うまい飯データを読み込み中...🍚</p>
     </div>
 
-    <!-- 注意書き（画面底面に完全密着させるフッター） -->
+    <!-- 注意書き（マップ透過シャットアウトフッター） -->
     <div class="p-2 text-[9px] text-gray-400 text-center border-t border-amber-100 bg-white leading-tight flex-shrink-0" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
       ※掲載情報や位置情報は変更されている場合があります。お出かけ前に必ず公式情報等をご確認ください。
     </div>
@@ -401,20 +401,34 @@
       }
     });
 
+    /* 精度を向上させた検索・フィルターロジック */
     function applyFilterAndDraw() {
       let result = [...spotsData];
 
       if (currentSearchVal) {
-        result = result.filter(s => 
-          s.name.toLowerCase().includes(currentSearchVal) || 
-          s.desc.toLowerCase().includes(currentSearchVal) || 
-          s.instaKw.toLowerCase().includes(currentSearchVal) || 
-          s.category.toLowerCase().includes(currentSearchVal)
-        );
+        const query = currentSearchVal.trim().toLowerCase();
+        result = result.filter(s => {
+          const nameMatch = s.name.toLowerCase().includes(query);
+          const instaKwMatch = s.instaKw.toLowerCase().includes(query);
+          
+          // カテゴリ判定：「バー」などの曖昧な検索時に「ハンバーグ」等の説明文部分一致で誤ヒットしないよう厳格判定
+          const categories = s.category.split(',').map(c => c.trim().toLowerCase());
+          const catMatch = categories.some(cat => {
+            // 例: 「バー」検索時は「バー 🍸」にぴったり一致する場合のみヒット
+            const cleanCatName = cat.replace(/[^\w\u3040-\u30ff\u4e00-\u9faf]/g, '').trim();
+            const cleanQuery = query.replace(/[^\w\u3040-\u30ff\u4e00-\u9faf]/g, '').trim();
+            return cleanCatName === cleanQuery || cat.includes(query);
+          });
+
+          // 説明文へのヒット（店舗名やカテゴリでヒットしない場合のみ）
+          const descMatch = s.desc.toLowerCase().includes(query);
+
+          return nameMatch || catMatch || instaKwMatch || descMatch;
+        });
       }
 
       if (currentFilterCat !== 'all') {
-        result = result.filter(s => s.category.includes(currentFilterCat) || s.desc.includes(currentFilterCat));
+        result = result.filter(s => s.category.includes(currentFilterCat));
       }
 
       if (currentSortMode === 'distance' && userLatLng) {
