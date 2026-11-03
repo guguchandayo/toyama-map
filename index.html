@@ -289,23 +289,28 @@
       applyFilterAndDraw();
     }
 
-    function getCategoryStyle(cat) {
-      if (!cat) return { color: '#F97316', emoji: '😋' };
-      if (cat.includes('ラーメン')) return { color: '#EF4444', emoji: '🍜' };
-      if (cat.includes('カレー')) return { color: '#D97706', emoji: '🍛' };
-      if (cat.includes('肉ご飯')) return { color: '#DC2626', emoji: '🥩' };
-      if (cat.includes('魚ご飯')) return { color: '#0284C7', emoji: '🐟' };
-      if (cat.includes('洋食')) return { color: '#F59E0B', emoji: '🍳' };
-      if (cat.includes('中華')) return { color: '#EA580C', emoji: '🥟' };
-      if (cat.includes('和食')) return { color: '#16A34A', emoji: '🍱' };
-      if (cat.includes('ランチ')) return { color: '#EAB308', emoji: '🍱' };
-      if (cat.includes('カフェ')) return { color: '#B45309', emoji: '☕️' };
-      if (cat.includes('バー')) return { color: '#4C1D95', emoji: '🍸' };
-      if (cat.includes('居酒屋')) return { color: '#B91C1C', emoji: '🍻' };
-      if (cat.includes('ドライブ')) return { color: '#7C3AED', emoji: '🚗' };
-      if (cat.includes('食べ放題')) return { color: '#059669', emoji: '🍽️' };
-      return { color: '#F97316', emoji: '🍴' };
-    }
+  function getCategoryStyle(cat) {
+  if (!cat) return { color: '#F97316', emoji: '😋' };
+  
+  if (cat.includes('ラーメン')) return { color: '#EF4444', emoji: '🍜' };
+  if (cat.includes('カレー')) return { color: '#D97706', emoji: '🍛' };
+  if (cat.includes('肉ご飯')) return { color: '#DC2626', emoji: '🥩' };
+  if (cat.includes('魚ご飯')) return { color: '#0284C7', emoji: '🐟' };
+  if (cat.includes('洋食')) return { color: '#F59E0B', emoji: '🍳' };
+  if (cat.includes('中華')) return { color: '#EA580C', emoji: '🥟' };
+  if (cat.includes('和食')) return { color: '#16A34A', emoji: '🍱' };
+  if (cat.includes('ランチ')) return { color: '#EAB308', emoji: '🍱' };
+  if (cat.includes('カフェ')) return { color: '#B45309', emoji: '☕️' };
+  if (cat.includes('ケーキ屋')) return { color: '#EC4899', emoji: '🍰' };
+  if (cat.includes('和菓子屋')) return { color: '#84CC16', emoji: '🍡' };
+  if (cat.includes('軽食')) return { color: '#14B8A6', emoji: '🥪' };
+  if (cat.includes('バー')) return { color: '#4C1D95', emoji: '🍸' };
+  if (cat.includes('居酒屋')) return { color: '#B91C1C', emoji: '🍻' };
+  if (cat.includes('ドライブ')) return { color: '#7C3AED', emoji: '🚗' };
+  if (cat.includes('食べ放題')) return { color: '#059669', emoji: '🍽️' };
+  
+  return { color: '#F97316', emoji: '🍴' };
+}
 
     function calculateRawDistance(lat1, lon1, lat2, lon2) {
       const R = 6371;
