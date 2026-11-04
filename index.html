@@ -519,12 +519,11 @@
           html: `<div class="custom-food-pin" style="background-color: ${catStyle.color}">${catStyle.emoji}</div>`,
           iconSize: [26, 26],
           iconAnchor: [13, 13],
-          popupAnchor: [0, -20]
+          popupAnchor: [0, -10]
         });
 
         const popupOptions = {
-          autoPan: true,
-          autoPanPadding: L.point(15, 80)
+          autoPan: false
         };
 
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent, popupOptions);
@@ -552,11 +551,18 @@
           </div>
         `;
 
-        /* ★リストタップ時：店舗の位置を緯度（Lat）基準で少し北（上）に移動させ、ピン自体の画面上位置を下げてポップアップを収める★ */
+        /* ★ピクセル単位で画面中央から十分下（+220px）に移動させてポップアップを確実に全画面表示★ */
         card.onclick = function() {
-          const offsetLat = s.lat - 0.006; 
-          myMap.flyTo([offsetLat, s.lng], 15);
-          marker.openPopup();
+          const targetPoint = myMap.latLngToContainerPoint([s.lat, s.lng]);
+          const newPoint = L.point(targetPoint.x, targetPoint.y - 220);
+          const newLatLng = myMap.containerPointToLatLng(newPoint);
+          
+          myMap.flyTo(newLatLng, 15, { animate: true, duration: 0.5 });
+          
+          setTimeout(() => {
+            marker.openPopup();
+          }, 300);
+
           if (window.innerWidth < 768) {
             sheet.style.height = '90px';
             currentMode = 'min';
