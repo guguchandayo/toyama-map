@@ -34,7 +34,7 @@
     }
     .leaflet-popup-content {
       margin: 0 !important;
-      width: 220px !important;
+      width: 210px !important;
     }
 
     .leaflet-container a.leaflet-popup-close-button {
@@ -468,10 +468,10 @@
           distText = `📍 現在地から ${formatDistanceText(rawKm)}`;
         }
 
-        /* ★画像の最大高さを制限（max-h-36）して画面上切れを防止★ */
+        /* ★画像アスペクト比 3:4 固定（aspect-[3/4]）★ */
         const popupContent = `
           <div class="bg-white rounded-xl overflow-hidden shadow-sm relative">
-            <div class="relative w-full h-36 max-h-36 bg-slate-900 flex items-center justify-center overflow-hidden">
+            <div class="relative w-full aspect-[3/4] bg-slate-900 flex items-center justify-center overflow-hidden">
               <img src="${s.imgUrl}" loading="lazy" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&auto=format&fit=crop'">
               <span class="absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full text-white shadow-md z-20" style="background-color:${catStyle.color}">
                 ${catStyle.emoji} ${s.category}
@@ -515,18 +515,19 @@
           </div>
         `;
 
+        /* ★popupAnchorを下方向に下げて、ピンの上で十分にポップアップ全体が入る位置に調整★ */
         const foodPinIcon = L.divIcon({
           className: 'custom-pin-wrapper',
           html: `<div class="custom-food-pin" style="background-color: ${catStyle.color}">${catStyle.emoji}</div>`,
           iconSize: [26, 26],
           iconAnchor: [13, 13],
-          popupAnchor: [0, -8]
+          popupAnchor: [0, -20]
         });
 
-        /* ★autoPanPaddingを60px確保して、上が切れずに自動で画面内に移動するよう設定★ */
+        /* ★autoPanPaddingで画面上の余白を80px確保。上が絶対に切れず下方に自動移動★ */
         const popupOptions = {
           autoPan: true,
-          autoPanPadding: L.point(20, 70)
+          autoPanPadding: L.point(15, 80)
         };
 
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent, popupOptions);
