@@ -185,6 +185,7 @@
     let currentSortMode = 'default';
 
     let markerGroup = L.layerGroup().addTo(myMap);
+    let openPopupSpotName = null;
     let userMarker = null;
     let userLatLng = null;
     let likeCounts = {};
@@ -244,6 +245,7 @@
     });
 
     function closeMyPopup() {
+      openPopupSpotName = null;
       myMap.closePopup();
     }
 
@@ -276,20 +278,23 @@
       localStorage.setItem('my_liked_spots', JSON.stringify(likes));
     }
 
-    function toggleLike(spotName) {
-      const myLikes = getMyLikes();
-      const currentlyLiked = !myLikes[spotName];
-      const newLiked = !currentlyLiked;
+    /* ★修正点：いいね加減算の判定と表示保持の修正★ */
+    function toggleLike(spotName, event) {
+      if (event) event.stopPropagation();
 
-      setMyLike(spotName, newLiked);
+      const myLikes = getMyLikes();
+      const isCurrentlyLiked = !!myLikes[spotName];
+      const nextLikedState = !isCurrentlyLiked;
+
+      setMyLike(spotName, nextLikedState);
 
       const currentCount = likeCounts[spotName] || 0;
-      likeCounts[spotName] = Math.max(0, currentCount + (newLiked ? 1 : -1));
+      likeCounts[spotName] = Math.max(0, currentCount + (nextLikedState ? 1 : -1));
 
       if (db) {
         const docRef = db.collection('likes').doc(encodeURIComponent(spotName));
         docRef.set({
-          count: firebase.firestore.FieldValue.increment(newLiked ? 1 : -1)
+          count: firebase.firestore.FieldValue.increment(nextLikedState ? 1 : -1)
         }, { merge: true }).catch(err => console.log("Like sync error:", err));
       }
 
@@ -454,6 +459,7 @@
       }
 
       const myLikes = getMyLikes();
+      let activeMarkerToReopen = null;
 
       data.forEach(function(s) {
         const catStyle = getCategoryStyle(s.category);
@@ -484,7 +490,7 @@
             <div class="p-2 space-y-1 bg-white">
               <div class="flex items-center justify-between">
                 <h3 class="font-black text-gray-900 text-xs truncate leading-tight flex-1 pr-1">${s.name}</h3>
-                <button onclick="toggleLike('${s.name}')" 
+                <button onclick="toggleLike('${s.name}', event)" 
                         class="px-2 py-0.5 rounded-lg text-[9px] font-black shadow-sm flex items-center gap-0.5 ${isLiked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-700'}">
                   <i class="fa-solid fa-heart ${isLiked ? 'text-white' : 'text-red-500'}"></i> ${count}
                 </button>
@@ -527,6 +533,15 @@
         };
 
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent, popupOptions);
+        
+        marker.on('popupopen', () => {
+          openPopupSpotName = s.name;
+        });
+
+        if (openPopupSpotName === s.name) {
+          activeMarkerToReopen = marker;
+        }
+
         markerGroup.addLayer(marker);
 
         const card = document.createElement('div');
@@ -544,14 +559,13 @@
             <p class="text-[9px] text-gray-500 font-bold truncate mt-0.5">${s.desc}</p>
             <div class="flex items-center justify-between mt-1">
               ${distText ? `<span class="text-[8px] font-black text-orange-600">${distText}</span>` : '<span></span>'}
-              <span class="text-[8px] font-black text-red-500 bg-red-50 px-1 py-0.5 rounded-full flex items-center gap-0.5 border border-red-100">
+              <button onclick="toggleLike('${s.name}', event)" class="text-[8px] font-black ${isLiked ? 'text-white bg-red-500' : 'text-red-500 bg-red-50'} px-1.5 py-0.5 rounded-full flex items-center gap-0.5 border border-red-100">
                 <i class="fa-solid fa-heart text-[7px]"></i> ${count}
-              </span>
+              </button>
             </div>
           </div>
         `;
 
-        /* リストタップ時：「現在地」ボタンの直下に✖ボタンが並ぶベスト位置（-70px）へ移動 */
         card.onclick = function() {
           const targetPoint = myMap.latLngToContainerPoint([s.lat, s.lng]);
           const newPoint = L.point(targetPoint.x, targetPoint.y - 70);
@@ -560,6 +574,7 @@
           myMap.flyTo(newLatLng, 15, { animate: true, duration: 0.5 });
           
           setTimeout(() => {
+            openPopupSpotName = s.name;
             marker.openPopup();
           }, 300);
 
@@ -572,6 +587,10 @@
 
         listEl.appendChild(card);
       });
+
+      if (activeMarkerToReopen) {
+        activeMarkerToReopen.openPopup();
+      }
     }
 
     document.getElementById('searchInput').addEventListener('input', function(e) {
