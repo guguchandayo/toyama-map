@@ -41,6 +41,22 @@
       display: none !important;
     }
 
+    /* ★出典（クレジット）表記がスマホのボトムシートに隠れないよう底上げ調整★ */
+    .leaflet-bottom.leaflet-right {
+      bottom: 100px !important;
+    }
+    .leaflet-control-attribution {
+      background: rgba(255, 255, 255, 0.85) !important;
+      border-radius: 6px;
+      padding: 2px 6px !important;
+      font-size: 9px !important;
+    }
+    @media (min-width: 768px) {
+      .leaflet-bottom.leaflet-right {
+        bottom: 0px !important;
+      }
+    }
+
     .insta-btn {
       background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
     }
@@ -174,7 +190,7 @@
     }).setView([36.6953, 137.2113], 11);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
     }).addTo(myMap);
 
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
@@ -278,7 +294,6 @@
       localStorage.setItem('my_liked_spots', JSON.stringify(likes));
     }
 
-    /* ★修正点：いいね加減算の判定と表示保持の修正★ */
     function toggleLike(spotName, event) {
       if (event) event.stopPropagation();
 
