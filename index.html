@@ -41,20 +41,19 @@
       display: none !important;
     }
 
-    /* ★出典（クレジット）表記がスマホのボトムシートに隠れないよう底上げ調整★ */
-    .leaflet-bottom.leaflet-right {
-      bottom: 100px !important;
+    /* ★スマホ時にボトムシート（90px）のすぐ上にクレジット表記を確実に配置★ */
+    @media (max-width: 767px) {
+      .leaflet-bottom {
+        bottom: 95px !important;
+      }
     }
+    
     .leaflet-control-attribution {
       background: rgba(255, 255, 255, 0.85) !important;
       border-radius: 6px;
       padding: 2px 6px !important;
       font-size: 9px !important;
-    }
-    @media (min-width: 768px) {
-      .leaflet-bottom.leaflet-right {
-        bottom: 0px !important;
-      }
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     }
 
     .insta-btn {
