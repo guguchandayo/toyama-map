@@ -41,7 +41,7 @@
       display: none !important;
     }
 
-    /* ★スマホ時にボトムシート（90px）のすぐ上にクレジット表記を確実に配置★ */
+    /* スマホ時にボトムシート（90px）のすぐ上にクレジット表記を確実に配置 */
     @media (max-width: 767px) {
       .leaflet-bottom {
         bottom: 95px !important;
@@ -581,6 +581,9 @@
         `;
 
         card.onclick = function() {
+          // ★修正：初回起動時でも確実にマップサイズを再計算させてジャンプさせる
+          myMap.invalidateSize();
+
           const targetPoint = myMap.latLngToContainerPoint([s.lat, s.lng]);
           const newPoint = L.point(targetPoint.x, targetPoint.y - 70);
           const newLatLng = myMap.containerPointToLatLng(newPoint);
