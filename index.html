@@ -41,10 +41,10 @@
       display: none !important;
     }
 
-    /* ★修正：クレジット（出典）表記専用に位置を調整して確実に表示させる★ */
+    /* ★修正：スマホ時にマップの著作権コントロール位置自体をボトムシートの上に押し上げる★ */
     @media (max-width: 767px) {
-      .leaflet-control-attribution {
-        margin-bottom: 95px !important;
+      .leaflet-bottom {
+        bottom: 95px !important;
       }
     }
     
