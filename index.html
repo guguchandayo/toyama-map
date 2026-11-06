@@ -41,18 +41,17 @@
       display: none !important;
     }
 
-    /* ★修正：スマホ時にマップの著作権コントロール位置自体をボトムシートの上に押し上げる★ */
-    @media (max-width: 767px) {
-      .leaflet-bottom {
-        bottom: 95px !important;
-      }
+    /* ★修正：クレジット（出典）表記をマップの一番左上に配置して邪魔にならないようにする★ */
+    .leaflet-left .leaflet-control-attribution {
+      margin-left: 6px !important;
+      margin-top: 6px !important;
     }
     
     .leaflet-control-attribution {
       background: rgba(255, 255, 255, 0.85) !important;
       border-radius: 6px;
       padding: 2px 6px !important;
-      font-size: 9px !important;
+      font-size: 8px !important;
       box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     }
 
@@ -188,9 +187,14 @@
       dragging: true
     }).setView([36.6953, 137.2113], 11);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // ★修正：クレジット表記を左上（topleft）に配置
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
-    }).addTo(myMap);
+    });
+    tileLayer.options.attributionControl = false; // デフォルトの右下を一度無効化
+    tileLayer.addTo(myMap);
+
+    L.control.attribution({position: 'topleft'}).addTo(myMap).addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>');
 
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXXOH9pKDeiSNg8G0FJcKKmH7Ttio5iq10frKSvzUISdVlGLUt0k301QfhnFfxoJmdQFkvdo5d520s/pub?output=csv';
 
