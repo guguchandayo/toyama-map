@@ -581,19 +581,21 @@
         `;
 
         card.onclick = function() {
-          // ★修正：初回起動時でも確実にマップサイズを再計算させてジャンプさせる
+          // ★修正：初回起動時にマップサイズを完全になじませてから正確な位置へジャンプさせる
           myMap.invalidateSize();
-
-          const targetPoint = myMap.latLngToContainerPoint([s.lat, s.lng]);
-          const newPoint = L.point(targetPoint.x, targetPoint.y - 70);
-          const newLatLng = myMap.containerPointToLatLng(newPoint);
-          
-          myMap.flyTo(newLatLng, 15, { animate: true, duration: 0.5 });
           
           setTimeout(() => {
-            openPopupSpotName = s.name;
-            marker.openPopup();
-          }, 300);
+            const targetPoint = myMap.latLngToContainerPoint([s.lat, s.lng]);
+            const newPoint = L.point(targetPoint.x, targetPoint.y - 70);
+            const newLatLng = myMap.containerPointToLatLng(newPoint);
+            
+            myMap.flyTo(newLatLng, 15, { animate: true, duration: 0.5 });
+            
+            setTimeout(() => {
+              openPopupSpotName = s.name;
+              marker.openPopup();
+            }, 300);
+          }, 50);
 
           if (window.innerWidth < 768) {
             sheet.style.height = '90px';
