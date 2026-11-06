@@ -41,10 +41,10 @@
       display: none !important;
     }
 
-    /* スマホ時にボトムシート（90px）のすぐ上にクレジット表記を確実に配置 */
+    /* ★修正：クレジット（出典）表記専用に位置を調整して確実に表示させる★ */
     @media (max-width: 767px) {
-      .leaflet-bottom {
-        bottom: 95px !important;
+      .leaflet-control-attribution {
+        margin-bottom: 95px !important;
       }
     }
     
@@ -582,7 +582,6 @@
         `;
 
         card.onclick = function() {
-          // ★修正：Leafletの標準setViewで確実に中央にピンを捉えてからポップアップを開く
           myMap.invalidateSize();
           myMap.setView([s.lat, s.lng], 15, { animate: true });
           
