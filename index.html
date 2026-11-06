@@ -543,7 +543,8 @@
         });
 
         const popupOptions = {
-          autoPan: false
+          autoPan: true,
+          autoPanPadding: [50, 50]
         };
 
         const marker = L.marker([s.lat, s.lng], { icon: foodPinIcon }).bindPopup(popupContent, popupOptions);
@@ -581,21 +582,14 @@
         `;
 
         card.onclick = function() {
-          // ★修正：初回起動時にマップサイズを完全になじませてから正確な位置へジャンプさせる
+          // ★修正：Leafletの標準setViewで確実に中央にピンを捉えてからポップアップを開く
           myMap.invalidateSize();
+          myMap.setView([s.lat, s.lng], 15, { animate: true });
           
           setTimeout(() => {
-            const targetPoint = myMap.latLngToContainerPoint([s.lat, s.lng]);
-            const newPoint = L.point(targetPoint.x, targetPoint.y - 70);
-            const newLatLng = myMap.containerPointToLatLng(newPoint);
-            
-            myMap.flyTo(newLatLng, 15, { animate: true, duration: 0.5 });
-            
-            setTimeout(() => {
-              openPopupSpotName = s.name;
-              marker.openPopup();
-            }, 300);
-          }, 50);
+            openPopupSpotName = s.name;
+            marker.openPopup();
+          }, 400);
 
           if (window.innerWidth < 768) {
             sheet.style.height = '90px';
